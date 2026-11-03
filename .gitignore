@@ -1,0 +1,18 @@
+.gradle/
+.idea/
+local.properties
+**/build/
+*.iml
+captures/
+.kotlin/
+tmp/
+/output/
+*.apk
+*.aab
+*.jks
+*.keystore
+.env
+.env.*
+!/.env.example
+/Android 应用开发课程大作业及报告要求2026秋季.pdf
+/喵喵数据地图_项目说明.pdf

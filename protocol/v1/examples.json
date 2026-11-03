@@ -1,0 +1,89 @@
+{
+  "protocolVersion": "1.0.0",
+  "recordResponse": {
+    "data": {
+      "id": "cf32c239-761a-4e6b-a459-9b622217af14",
+      "userId": "e49f857b-a605-4e05-b226-4438a43d1ef0",
+      "title": "图书馆的小橘 🐱",
+      "description": "树荫下休息，<b>请轻声观察</b>。",
+      "place": "图书馆东侧",
+      "latitude": 23.0507,
+      "longitude": 113.4033,
+      "coordinateSystem": "WGS84",
+      "photos": [
+        {
+          "id": "78d45bed-7de6-47ed-87ac-3ea0a13b6a49",
+          "url": "https://images.example.com/cats/78d45bed-7de6-47ed-87ac-3ea0a13b6a49.jpg"
+        }
+      ],
+      "author": {
+        "id": "e49f857b-a605-4e05-b226-4438a43d1ef0",
+        "nickname": "校园观察员",
+        "avatarUrl": null
+      },
+      "createdAt": "2026-10-29T04:00:00.000Z",
+      "updatedAt": "2026-10-29T12:00:00.000Z",
+      "version": 3,
+      "likeCount": 2,
+      "commentCount": 1,
+      "liked": true
+    }
+  },
+  "recordWrite": {
+    "title": "图书馆的小橘 🐱",
+    "description": "树荫下休息，<b>请轻声观察</b>。",
+    "place": "图书馆东侧",
+    "latitude": 23.0507,
+    "longitude": 113.4033,
+    "coordinateSystem": "WGS84",
+    "photoIds": [
+      "78d45bed-7de6-47ed-87ac-3ea0a13b6a49"
+    ]
+  },
+  "commentResponse": {
+    "data": {
+      "id": "1810b970-6480-4f28-959b-1c339857feba",
+      "recordId": "cf32c239-761a-4e6b-a459-9b622217af14",
+      "userId": "84e7f65e-d94f-4bfe-a077-2363a4740684",
+      "author": {
+        "id": "84e7f65e-d94f-4bfe-a077-2363a4740684",
+        "nickname": "小林",
+        "avatarUrl": null
+      },
+      "content": "今天也在这里见到了！",
+      "createdAt": "2026-10-29T12:01:00.000Z"
+    }
+  },
+  "emptyPage": {
+    "data": [],
+    "nextCursor": null
+  },
+  "observationResponse": {
+    "data": {
+      "id": "e1c57d39-1ce4-47b4-9236-69d07ed80dad",
+      "userId": "e49f857b-a605-4e05-b226-4438a43d1ef0",
+      "observedAt": "2026-10-29T03:30:00.000Z",
+      "place": "图书馆东侧",
+      "count": 2,
+      "catName": "小橘",
+      "appearance": "橘白色，白爪子",
+      "createdAt": "2026-10-29T04:00:00.000Z",
+      "updatedAt": "2026-10-29T04:00:00.000Z",
+      "version": 1
+    }
+  },
+  "observationWrite": {
+    "observedAt": "2026-10-29T03:30:00.000Z",
+    "place": "图书馆东侧",
+    "count": 2,
+    "catName": "小橘",
+    "appearance": "橘白色，白爪子"
+  },
+  "conflictResponse": {
+    "error": {
+      "code": "VERSION_CONFLICT",
+      "message": "记录已被修改，请刷新后重试",
+      "requestId": "request-001"
+    }
+  }
+}
