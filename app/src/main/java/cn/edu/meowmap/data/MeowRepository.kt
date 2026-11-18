@@ -19,10 +19,25 @@ data class RecordInput(
     val latitude: Double,
     val longitude: Double,
     val photos: List<String>,
+    val catId: String? = null,
 )
 
 /** The UI only talks to this contract; a remote source can be added behind it. */
 interface MeowRepository {
+    val profileAvatar: Flow<String?> get() = flowOf(null)
+    suspend fun catAvatar(path: String): ByteArray? = null
+    suspend fun updateProfile(name: String, avatar: Uri?, resetAvatar: Boolean) = rename(name)
+    val publicObservations: Flow<List<PublicObservation>> get() = flowOf(emptyList())
+    suspend fun askAssistant(question: String): AssistantAnswer = error("寻猫小助手需要云端账号")
+    suspend fun exportBackup(): ByteArray { error("当前数据源不支持备份") }
+    suspend fun importBackup(bytes: ByteArray): Int { error("当前数据源不支持导入") }
+    val cats: Flow<List<CatProfile>> get() = flowOf(emptyList())
+    val notice: Flow<String?> get() = flowOf(null)
+    suspend fun refresh() = initialize()
+    suspend fun loadInteractions(recordId: String) {}
+    suspend fun createCat(cat: CatProfile) { error("请切换到云端模式使用猫咪档案") }
+    suspend fun saveCat(cat: CatProfile) { error("请切换到云端模式使用猫咪档案") }
+    suspend fun deleteCat(id: String) { error("请切换到云端模式使用猫咪档案") }
     val user: Flow<LocalUser?>
     fun records(userId: String): Flow<List<RecordSummary>>
     val photos: Flow<List<RecordPhoto>>
@@ -31,6 +46,7 @@ interface MeowRepository {
     suspend fun register(email: String, nickname: String, password: String)
     suspend fun login(email: String, password: String)
     fun logout()
+    suspend fun endSession() { logout() }
     suspend fun rename(name: String)
     suspend fun save(input: RecordInput)
     suspend fun delete(recordId: String)
@@ -70,7 +86,7 @@ class LocalMeowRepository(context: Context, private val db: MeowDatabase) : Meow
             if (input.id != null) require(old != null && old.userId == userId) { "只能修改自己的观察手记" }
             val observation = Observation(input.id ?: UUID.randomUUID().toString(), userId,
                 validated.observedAt, validated.place, validated.count, validated.catName, validated.appearance,
-                old?.createdAt ?: now, now)
+                old?.createdAt ?: now, now, input.catId)
             if (old == null) dao.insertObservation(observation) else dao.updateObservation(observation)
         }
     }
@@ -130,7 +146,7 @@ class LocalMeowRepository(context: Context, private val db: MeowDatabase) : Meow
             if (input.id != null) require(old != null && old.userId == userId) { "只能修改自己的记录" }
             val now = System.currentTimeMillis()
             val previousPhotos = dao.photoPaths(input.id ?: "") + (dao.draft(userId, input.id ?: "new")?.photos ?: emptyList())
-            val record = CatRecord(input.id ?: UUID.randomUUID().toString(), userId, input.title.trim(), input.description.trim(), input.place.trim(), input.latitude, input.longitude, old?.createdAt ?: now, now)
+            val record = CatRecord(input.id ?: UUID.randomUUID().toString(), userId, input.title.trim(), input.description.trim(), input.place.trim(), input.latitude, input.longitude, old?.createdAt ?: now, now, catId = input.catId)
             if (old == null) dao.insertRecord(record) else dao.updateRecord(record)
             dao.deletePhotos(record.id)
             dao.insertPhotos(input.photos.mapIndexed { index, path -> RecordPhoto(UUID.randomUUID().toString(), record.id, path, index) })
@@ -174,7 +190,7 @@ class LocalMeowRepository(context: Context, private val db: MeowDatabase) : Meow
             if (input.id != null) require(dao.getRecord(input.id)?.userId == userId) { "只能保存自己的记录草稿" }
             val slot = input.id ?: "new"
             val old = dao.draft(userId, slot)
-            dao.saveDraft(EditorDraft(userId, slot, input.title, input.description, input.place, input.latitude, input.longitude, locationSelected, input.photos, System.currentTimeMillis()))
+            dao.saveDraft(EditorDraft(userId, slot, input.title, input.description, input.place, input.latitude, input.longitude, locationSelected, input.photos, System.currentTimeMillis(), input.catId))
             old?.photos ?: emptyList()
         }
         cleanup(candidates)

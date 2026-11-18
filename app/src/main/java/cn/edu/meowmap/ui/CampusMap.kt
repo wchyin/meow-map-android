@@ -18,6 +18,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import cn.edu.meowmap.data.RecordSummary
+import cn.edu.meowmap.data.CampusArea
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -27,9 +28,14 @@ import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.PropertyFactory.*
 import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.android.style.sources.GeoJsonOptions
+import org.maplibre.android.style.layers.FillLayer
+import org.maplibre.android.style.layers.HeatmapLayer
+import org.maplibre.android.style.expressions.Expression.*
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
+import org.maplibre.geojson.Polygon
 
 data class MapPoint(val latitude: Double, val longitude: Double, val requestId: Long = 0)
 val CampusCenter = MapPoint(23.0507, 113.4033)
@@ -42,11 +48,16 @@ fun CampusMap(
     focus: MapPoint? = null,
     onPick: ((MapPoint) -> Unit)? = null,
     onRecord: (String) -> Unit = {},
+    areas: List<CampusArea> = emptyList(),
+    heatmap: Boolean = false,
+    onCampus: ((CampusArea) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     val currentPick by rememberUpdatedState(onPick)
     val currentRecord by rememberUpdatedState(onRecord)
+    val currentAreas by rememberUpdatedState(areas)
+    val campusClick by rememberUpdatedState(onCampus)
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
     val view = remember { MapView(context).apply { onCreate(null) } }
@@ -76,8 +87,16 @@ fun CampusMap(
                 m.uiSettings.isRotateGesturesEnabled = false
                 m.cameraPosition = CameraPosition.Builder().target(LatLng((selection ?: focus ?: CampusCenter).latitude, (selection ?: focus ?: CampusCenter).longitude)).zoom(15.5).build()
                 m.setStyle(Style.Builder().fromUri("asset://campus-map.json")) { s ->
-                    s.addSource(GeoJsonSource("cats", FeatureCollection.fromFeatures(emptyList<Feature>())))
-                    s.addLayer(CircleLayer("cat-points", "cats").withProperties(circleRadius(10f), circleColor("#D56647"), circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f)))
+                    val boundaries = currentAreas.flatMap { area -> area.rings.map { ring ->
+                        Feature.fromGeometry(Polygon.fromLngLats(listOf(ring.map { Point.fromLngLat(it.second, it.first) })))
+                    } }
+                    s.addSource(GeoJsonSource("campuses", FeatureCollection.fromFeatures(boundaries)))
+                    s.addLayer(FillLayer("campus-fill", "campuses").withProperties(fillColor("#537867"), fillOpacity(.12f), fillOutlineColor("#537867")))
+                    s.addSource(GeoJsonSource("cats", FeatureCollection.fromFeatures(emptyList<Feature>()), GeoJsonOptions().withCluster(true).withClusterRadius(45).withClusterMaxZoom(15)))
+                    s.addLayer(CircleLayer("cat-points", "cats").withFilter(not(has("point_count"))).withProperties(circleRadius(10f), circleColor("#AD5035"), circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f)))
+                    s.addLayer(CircleLayer("cat-clusters", "cats").withFilter(has("point_count")).withProperties(circleRadius(18f), circleColor("#537867"), circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f)))
+                    s.addSource(GeoJsonSource("heat-data", FeatureCollection.fromFeatures(emptyList<Feature>())))
+                    s.addLayer(HeatmapLayer("cat-heat", "heat-data").withProperties(heatmapRadius(32f), heatmapOpacity(.7f)))
                     s.addSource(GeoJsonSource("selection", FeatureCollection.fromFeatures(emptyList<Feature>())))
                     s.addLayer(CircleLayer("selected-point", "selection").withProperties(circleRadius(12f), circleColor("#537867"), circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f)))
                     style = s
@@ -87,8 +106,12 @@ fun CampusMap(
                     if (pick != null) pick(MapPoint(coordinate.latitude, coordinate.longitude))
                     else {
                         val point = m.projection.toScreenLocation(coordinate)
-                        val features = m.queryRenderedFeatures(android.graphics.RectF(point.x - 24, point.y - 24, point.x + 24, point.y + 24), "cat-points")
-                        features.firstOrNull()?.getStringProperty("id")?.let { currentRecord(it) }
+                        val features = m.queryRenderedFeatures(android.graphics.RectF(point.x - 24, point.y - 24, point.x + 24, point.y + 24), "cat-points", "cat-clusters")
+                        if (features.isEmpty()) currentAreas.find { it.contains(coordinate.latitude, coordinate.longitude) }?.let { campusClick?.invoke(it) }
+                        features.firstOrNull()?.let { feature ->
+                            if (feature.hasProperty("point_count")) m.animateCamera(CameraUpdateFactory.newLatLngZoom(coordinate, m.cameraPosition.zoom + 2))
+                            else feature.getStringProperty("id")?.let { currentRecord(it) }
+                        }
                     }
                     true
                 }
@@ -98,6 +121,12 @@ fun CampusMap(
     LaunchedEffect(style, records) {
         val features = records.map { r -> Feature.fromGeometry(Point.fromLngLat(r.record.longitude, r.record.latitude)).apply { addStringProperty("id", r.record.id) } }
         style?.getSourceAs<GeoJsonSource>("cats")?.setGeoJson(FeatureCollection.fromFeatures(features))
+        style?.getSourceAs<GeoJsonSource>("heat-data")?.setGeoJson(FeatureCollection.fromFeatures(features))
+    }
+    LaunchedEffect(style, heatmap) {
+        style?.getLayer("cat-heat")?.setProperties(visibility(if (heatmap) "visible" else "none"))
+        style?.getLayer("cat-points")?.setProperties(visibility(if (heatmap) "none" else "visible"))
+        style?.getLayer("cat-clusters")?.setProperties(visibility(if (heatmap) "none" else "visible"))
     }
     LaunchedEffect(style, selection) {
         val features = selection?.let { listOf(Feature.fromGeometry(Point.fromLngLat(it.longitude, it.latitude))) } ?: emptyList()

@@ -44,7 +44,14 @@ class MediaStore(private val context: Context) {
                 if (exif?.isFlipped == true) postScale(-1f, 1f)
             }
             val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-            try { output.outputStream().use { check(rotated.compress(Bitmap.CompressFormat.JPEG, 85, it)) { "照片保存失败" } } }
+            try {
+                var quality = 85
+                do {
+                    output.outputStream().use { check(rotated.compress(Bitmap.CompressFormat.JPEG, quality, it)) { "照片保存失败" } }
+                    quality -= 10
+                } while (output.length() > 2*1024*1024 && quality >= 35)
+                require(output.length() <= 2*1024*1024) { "照片压缩后仍超过 2 MiB，请选择较小图片" }
+            }
             finally { if (rotated !== bitmap) rotated.recycle(); bitmap.recycle() }
             output.path
         } catch (e: Exception) { output.delete(); throw e }

@@ -37,6 +37,18 @@ def migrate(db, start=1, end=3):
 
 
 class MigrationTest(unittest.TestCase):
+    def test_v3_upgrade_preserves_data_and_adds_optional_cat_links(self):
+        with database(3) as db:
+            db.execute("INSERT INTO users VALUES ('u','u@example.com','User','hash','salt')")
+            db.execute("INSERT INTO records VALUES ('r','u','cat','','campus',23,113,1,1,0)")
+            db.execute("INSERT INTO drafts VALUES ('u','new','draft','','',23,113,0,'[]',1)")
+            db.execute("INSERT INTO observations VALUES ('n','u',1,'campus',1,'cat','',1,1)")
+            migrate(db, start=3, end=4)
+            for table in ['records', 'drafts', 'observations']:
+                self.assertEqual(1, db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+                self.assertIsNone(db.execute(f"SELECT catId FROM {table}").fetchone()[0])
+            self.assertEqual([], db.execute("PRAGMA foreign_key_check").fetchall())
+
     def test_existing_records_and_interactions_survive(self):
         with database(1) as db:
             db.execute("INSERT INTO users VALUES ('u','a@example.com','同学','hash','salt')")

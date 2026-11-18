@@ -26,6 +26,7 @@ import cn.edu.meowmap.data.RecordSummary
 @Composable
 fun DetailScreen(state: MeowState, entry: RecordSummary, vm: MeowViewModel, onBack: () -> Unit, onEdit: () -> Unit, onAuth: () -> Unit, onDeleted: () -> Unit) {
     val record = entry.record
+    LaunchedEffect(record.id) { vm.interactions(record.id) }
     val photos = state.photos.filter { it.recordId == record.id }
     val comments = state.comments.filter { it.comment.recordId == record.id }
     var text by rememberSaveable(record.id) { mutableStateOf("") }

@@ -12,6 +12,7 @@ class MeowApplication : Application() {
         super.onCreate()
         MapLibre.getInstance(this)
         val db = Room.databaseBuilder(this, MeowDatabase::class.java, "meow-map.db").build()
-        repository = LocalMeowRepository(this, db)
+        repository = if (BuildConfig.MEOW_LOCAL_MODE) LocalMeowRepository(this, db)
+            else CloudMeowRepository(this, db, BuildConfig.MEOW_API_URL)
     }
 }

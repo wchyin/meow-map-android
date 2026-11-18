@@ -26,6 +26,7 @@ data class CatRecord(
     val createdAt: Long,
     val updatedAt: Long,
     val demo: Boolean = false,
+    val catId: String? = null,
 )
 
 @Entity(tableName = "photos", indices = [Index("recordId")], foreignKeys = [
@@ -70,6 +71,7 @@ data class EditorDraft(
     val locationSelected: Boolean,
     val photos: List<String>,
     val updatedAt: Long,
+    val catId: String? = null,
 )
 
 class PhotoListConverter {
@@ -143,8 +145,8 @@ interface MeowDao {
 @TypeConverters(PhotoListConverter::class)
 @Database(
     entities = [LocalUser::class, CatRecord::class, RecordPhoto::class, RecordLike::class, RecordComment::class, EditorDraft::class, Observation::class],
-    version = 3, exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    version = 4, exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
 )
 abstract class MeowDatabase : RoomDatabase() {
     abstract fun dao(): MeowDao

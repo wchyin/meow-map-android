@@ -28,7 +28,9 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ObservationScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit) {
+fun ObservationScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit, onRecord: (String) -> Unit) {
+    var public by rememberSaveable { mutableStateOf(false) }
+    var missing by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var editorId by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -36,14 +38,20 @@ fun ObservationScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit) 
     var end by rememberSaveable { mutableStateOf<Long?>(null) }
     var dates by rememberSaveable { mutableStateOf(false) }
     val filtered = state.observations.searchObservations(query).filter {
-        (start == null || it.observedAt >= start!!) && (end == null || it.observedAt < end!!)
+        (!missing || it.place.isBlank()) && (start == null || it.observedAt >= start!!) && (end == null || it.observedAt < end!!)
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Spacer(Modifier.height(20.dp))
         Text("我的观察手记", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
-        if (state.user == null) {
-            EmptyState("登录后记录观察手记", "手记仅对自己的账号可见")
+        if (!cn.edu.meowmap.BuildConfig.MEOW_LOCAL_MODE) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(!public, { public = false }, label = { Text("我的记录") })
+            FilterChip(public, { public = true }, label = { Text("公开观察") })
+        }
+        if (public) {
+            PublicObservations(state, vm, onRecord)
+        } else if (state.user == null) {
+            EmptyState("登录后记录观察手记", if (cn.edu.meowmap.BuildConfig.MEOW_LOCAL_MODE) "记录仅在此设备保存" else "云端观察可供其他用户浏览")
             Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text("登录 / 注册") }
         } else {
             Button(onClick = { editorId = "new" }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("new_observation")) {
@@ -53,6 +61,7 @@ fun ObservationScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit) 
                 placeholder = { Text("搜索猫咪、地点或特征") }, leadingIcon = { Icon(Icons.Outlined.Search, null) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Outlined.Close, "清除搜索") } })
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(missing, { missing = !missing }, label = { Text("缺少地点") })
                 FilterChip(selected = start != null || end != null, onClick = { dates = true }, label = { Text("发现日期") })
                 if (start != null || end != null || query.isNotEmpty()) TextButton(onClick = { start = null; end = null; query = "" }) { Text("清除筛选") }
             }
@@ -69,7 +78,7 @@ fun ObservationScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit) 
                                 Text(note.catName, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                                 Text("${note.count} 只", color = Coral)
                             }
-                            Text(note.place, color = Sage)
+                            Text(note.place.ifBlank { "缺少具体地点" }, color = Sage)
                             if (note.appearance.isNotEmpty()) Text(note.appearance, style = MaterialTheme.typography.bodySmall)
                             Text(displayTime(note.observedAt), color = Muted, style = MaterialTheme.typography.labelSmall)
                             Row {
@@ -84,7 +93,7 @@ fun ObservationScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit) 
     }
     if (editorId != null && state.user != null) key(editorId) {
         val existing = state.observations.find { it.id == editorId }
-        if (editorId == "new" || existing != null) ObservationEditor(existing, state.busy,
+        if (editorId == "new" || existing != null) ObservationEditor(existing, state.busy, state.cats, vm,
             onDismiss = { editorId = null }, onSave = { vm.saveObservation(it) { editorId = null } })
         else AlertDialog(onDismissRequest = { editorId = null }, title = { Text("手记已不存在") },
             confirmButton = { TextButton(onClick = { editorId = null }) { Text("返回列表") } })
@@ -102,7 +111,7 @@ fun ObservationScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit) 
 }
 
 @Composable
-private fun ObservationEditor(existing: Observation?, busy: Boolean, onDismiss: () -> Unit, onSave: (ObservationInput) -> Unit) {
+private fun ObservationEditor(existing: Observation?, busy: Boolean, cats: List<CatProfile>, vm: MeowViewModel, onDismiss: () -> Unit, onSave: (ObservationInput) -> Unit) {
     val context = LocalContext.current
     val zone = ZoneId.systemDefault()
     var time by rememberSaveable { mutableLongStateOf(existing?.observedAt ?: System.currentTimeMillis()) }
@@ -110,6 +119,7 @@ private fun ObservationEditor(existing: Observation?, busy: Boolean, onDismiss: 
     var count by rememberSaveable { mutableStateOf(existing?.count?.toString() ?: "1") }
     var name by rememberSaveable { mutableStateOf(existing?.catName ?: "") }
     var appearance by rememberSaveable { mutableStateOf(existing?.appearance ?: "") }
+    var catId by rememberSaveable { mutableStateOf(existing?.catId) }
     var dirty by rememberSaveable { mutableStateOf(false) }
     var leaving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -131,6 +141,7 @@ private fun ObservationEditor(existing: Observation?, busy: Boolean, onDismiss: 
                     }, selected.hour, selected.minute, true).show()
                 }) { Text(selected.format(DateTimeFormatter.ofPattern("HH:mm"))) }
             }
+            CatPicker(cats, catId, !busy, vm) { catId = it; dirty = true }
             OutlinedTextField(place, { place = it; dirty = true }, label = { Text("地点") }, singleLine = true, enabled = !busy, modifier = Modifier.testTag("observation_place"))
             OutlinedTextField(count, { count = it; dirty = true }, label = { Text("数量（1～999）") }, singleLine = true, enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.testTag("observation_count"))
             OutlinedTextField(name, { name = it; dirty = true }, label = { Text("猫咪名称 / 品种") }, singleLine = true, enabled = !busy, modifier = Modifier.testTag("observation_name"))
@@ -139,7 +150,7 @@ private fun ObservationEditor(existing: Observation?, busy: Boolean, onDismiss: 
         }
     }, confirmButton = { Button(enabled = !busy, modifier = Modifier.testTag("observation_save"), onClick = {
         runCatching {
-            ObservationInput(existing?.id, time, place, count.toIntOrNull() ?: 0, name, appearance).validated()
+            ObservationInput(existing?.id, time, place, count.toIntOrNull() ?: 0, name, appearance, catId).validated()
         }.onSuccess { error = null; onSave(it) }.onFailure { error = it.message }
     }) { Text(if (busy) "保存中…" else "保存") } }, dismissButton = { TextButton(enabled = !busy, onClick = ::leave) { Text("取消") } })
     if (leaving) AlertDialog(onDismissRequest = { leaving = false }, title = { Text("放弃未保存的修改？") },

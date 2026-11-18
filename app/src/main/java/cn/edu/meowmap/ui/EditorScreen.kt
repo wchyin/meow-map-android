@@ -36,8 +36,10 @@ import kotlinx.coroutines.CancellationException
 @Composable
 fun EditorScreen(state: MeowState, existing: RecordSummary?, vm: MeowViewModel, onBack: () -> Unit, onSaved: () -> Unit) {
     val context = LocalContext.current
+    val campusAreas = remember { cn.edu.meowmap.data.CampusAreas.load(context) }
     val old = existing?.record
     val initialPhotos = remember(old?.id) { state.photos.filter { it.recordId == old?.id }.map { it.path } }
+    var catId by rememberSaveable { mutableStateOf(old?.catId) }
     var title by rememberSaveable { mutableStateOf(old?.title ?: "") }
     var description by rememberSaveable { mutableStateOf(old?.description ?: "") }
     var place by rememberSaveable { mutableStateOf(old?.place ?: "") }
@@ -60,7 +62,7 @@ fun EditorScreen(state: MeowState, existing: RecordSummary?, vm: MeowViewModel, 
                 vm.loadDraft(old?.id)?.let { draft ->
                     title = draft.title; description = draft.description; place = draft.place
                     latitude = draft.latitude; longitude = draft.longitude; selected = draft.locationSelected
-                    photos = draft.photos; restoredDraft = true
+                    photos = draft.photos; catId = draft.catId; restoredDraft = true
                     focus = MapPoint(latitude, longitude)
                 }
                 loaded = true
@@ -68,9 +70,9 @@ fun EditorScreen(state: MeowState, existing: RecordSummary?, vm: MeowViewModel, 
             catch (e: Exception) { loadError = e.message ?: "草稿读取失败" }
         }
     }
-    fun input() = RecordInput(old?.id, title, description, place, latitude, longitude, photos.toList())
+    fun input() = RecordInput(old?.id, title, description, place, latitude, longitude, photos.toList(), catId)
     val editable = loaded && !state.busy
-    val dirty = restoredDraft || title != (old?.title ?: "") || description != (old?.description ?: "") || place != (old?.place ?: "") || photos != initialPhotos || (selected && (old == null || latitude != old.latitude || longitude != old.longitude))
+    val dirty = catId != old?.catId || restoredDraft || title != (old?.title ?: "") || description != (old?.description ?: "") || place != (old?.place ?: "") || photos != initialPhotos || (selected && (old == null || latitude != old.latitude || longitude != old.longitude))
     fun leave() { if (state.busy) vm.notify("正在保存，请稍候") else if (dirty) confirmDiscard = true else onBack() }
     BackHandler { leave() }
     DisposableEffect(Unit) { onDispose { cancelLocation?.invoke() } }
@@ -110,6 +112,7 @@ fun EditorScreen(state: MeowState, existing: RecordSummary?, vm: MeowViewModel, 
             if (restoredDraft) Text("已恢复草稿", color = Sage, style = MaterialTheme.typography.bodyMedium)
             OutlinedTextField(title, { if (it.length <= 60) title = it }, enabled = editable, label = { Text("标题 *") }, placeholder = { Text("例如：图书馆旁晒太阳的橘猫") }, modifier = Modifier.fillMaxWidth().testTag("record_title"), singleLine = true)
             OutlinedTextField(description, { if (it.length <= 2000) description = it }, enabled = editable, label = { Text("描述") }, placeholder = { Text("写下看到的情况") }, modifier = Modifier.fillMaxWidth().testTag("record_description"), minLines = 3, maxLines = 6)
+            CatPicker(state.cats, catId, editable, vm) { catId = it }
             Text("猫咪照片 · ${photos.size}/6", fontWeight = FontWeight.SemiBold)
             if (photos.isNotEmpty()) LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(photos, key = { it }) { path ->
@@ -137,6 +140,7 @@ fun EditorScreen(state: MeowState, existing: RecordSummary?, vm: MeowViewModel, 
             CampusMap(emptyList(), Modifier.fillMaxWidth().height(240.dp).testTag("pick_map"), selection = if (selected) MapPoint(latitude, longitude) else null, focus = focus,
                 onPick = { if (editable) { latitude = it.latitude; longitude = it.longitude; selected = true } })
             Text(if (selected) "已选：%.5f, %.5f".format(latitude, longitude) else "点击地图选点", color = if (selected) Sage else Muted, style = MaterialTheme.typography.bodySmall)
+            if (selected) Text(campusAreas.find { it.contains(latitude, longitude) }?.label ?: "校外地点", color = Muted, style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(18.dp))
         }
     }

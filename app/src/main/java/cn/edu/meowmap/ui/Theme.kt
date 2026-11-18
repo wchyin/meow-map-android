@@ -20,9 +20,9 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-val Coral = Color(0xFFD56647)
-val Ink = Color(0xFF362F2A)
-val Muted = Color(0xFF81766D)
+val Coral = Color(0xFFAD5035)
+val Ink = Color(0xFF332923)
+val Muted = Color(0xFF716259)
 val Cream = Color(0xFFFAF7F2)
 val Sage = Color(0xFF537867)
 
@@ -46,7 +46,7 @@ fun displayTime(timestamp: Long): String = DateTimeFormatter.ofPattern("MM月dd�
 fun CatCover(path: String?, title: String, modifier: Modifier = Modifier) {
     Box(modifier.background(Color(0xFFEFE7DB)), contentAlignment = Alignment.Center) {
         if (path != null) SubcomposeAsyncImage(
-            model = File(path), contentDescription = title, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
+            model = if (path.startsWith("http://") || path.startsWith("https://")) path else File(path), contentDescription = title, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
             loading = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) } },
             error = { CoverPlaceholder("照片暂不可用") },
         ) else CoverPlaceholder("校园偶遇")

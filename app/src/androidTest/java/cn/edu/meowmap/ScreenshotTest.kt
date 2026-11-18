@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
@@ -19,9 +20,11 @@ class ScreenshotTest {
         bitmap.recycle()
     }
     @Test fun captureAppScreens() {
-        compose.waitUntil(30_000) { compose.onAllNodesWithText("地图分享").fetchSemanticsNodes().isNotEmpty() }
+        assumeTrue("Uses local fixture records", BuildConfig.MEOW_LOCAL_MODE)
+        compose.waitUntil(30_000) { compose.onAllNodesWithText("发现地图").fetchSemanticsNodes().isNotEmpty() }
         capture("01-map")
-        compose.onNodeWithText("地图分享", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("发现地图", useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("toggle_map_list").performClick()
         capture("02-records")
         compose.onNodeWithTag("record_list").performScrollToNode(hasText("图书馆旁的橘色身影"))
         compose.onNodeWithText("图书馆旁的橘色身影").performClick()

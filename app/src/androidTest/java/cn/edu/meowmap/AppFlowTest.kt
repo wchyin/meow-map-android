@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import android.graphics.Bitmap
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
@@ -23,8 +24,9 @@ class AppFlowTest {
     }
 
     @Test fun registerPublishDiscussAndDelete() {
+        assumeTrue("Uses local fixture accounts", BuildConfig.MEOW_LOCAL_MODE)
         val title = "校园猫${System.nanoTime()}"
-        compose.waitUntil(30_000) { compose.onAllNodesWithText("地图分享").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(30_000) { compose.onAllNodesWithText("发现地图").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("我的", useUnmergedTree = true).performClick()
         if (compose.onAllNodesWithText("退出登录").fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithText("退出登录").performClick()
         compose.onNodeWithTag("profile_login").performClick()
@@ -36,13 +38,13 @@ class AppFlowTest {
         compose.onNodeWithTag("auth_password").performTextInput("campus12345")
         compose.onNodeWithTag("auth_submit").performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("auth_submit").fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithText("地图分享", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("发现地图", useUnmergedTree = true).performClick()
         compose.onNodeWithTag("new_record").performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("record_title") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("record_title").performTextInput("草稿$title")
         compose.onNodeWithTag("save_draft").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("new_record").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("观察手记", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("观察记录", useUnmergedTree = true).performClick()
         compose.onNodeWithTag("new_observation").performClick()
         compose.onNodeWithTag("observation_place").performTextInput("手记测试地点")
         compose.onNodeWithTag("observation_name").performScrollTo().performTextInput("手记$title")
@@ -57,7 +59,7 @@ class AppFlowTest {
         compose.onNodeWithText("删除").performClick()
         compose.onNodeWithTag("confirm_delete_observation").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithText("手记$title").fetchSemanticsNodes().isEmpty() && compose.onAllNodesWithTag("confirm_delete_observation").fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithText("地图分享", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("发现地图", useUnmergedTree = true).performClick()
         compose.onNodeWithTag("new_record").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithText("已恢复草稿").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("record_title").assertTextContains("草稿$title")
@@ -70,6 +72,7 @@ class AppFlowTest {
         compose.waitUntil(10_000) { compose.onAllNodes(hasText("已选：", substring = true)).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("save_record").performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("save_record").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("toggle_map_list").performClick()
         compose.onNodeWithTag("record_list").performScrollToNode(hasText(title))
         compose.onNodeWithText(title).performClick()
         compose.onNodeWithTag("comment_input").performTextInput("一条测试评论")

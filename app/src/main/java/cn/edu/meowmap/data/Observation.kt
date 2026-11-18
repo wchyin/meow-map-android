@@ -19,11 +19,12 @@ data class Observation(
     val appearance: String,
     val createdAt: Long,
     val updatedAt: Long,
+    val catId: String? = null,
 )
 
 data class ObservationInput(
     val id: String? = null, val observedAt: Long, val place: String,
-    val count: Int, val catName: String, val appearance: String,
+    val count: Int, val catName: String, val appearance: String, val catId: String? = null,
 ) {
     fun validated(now: Long = System.currentTimeMillis()): ObservationInput {
         require(observedAt in 0..now) { "发现时间不能早于 1970 年或晚于现在" }
