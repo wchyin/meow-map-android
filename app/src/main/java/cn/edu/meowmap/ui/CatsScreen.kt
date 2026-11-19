@@ -40,7 +40,7 @@ internal fun avatarPreset(key: String, preferred: String? = null): AvatarPreset 
         ?: avatarPresets[Integer.remainderUnsigned(key.hashCode(), avatarPresets.size)]
 
 @Composable
-private fun CatAvatar(path: String?, name: String, vm: MeowViewModel) {
+internal fun CatAvatar(path: String?, name: String, vm: MeowViewModel) {
     val preset = avatarPresets.find { it.id == path }
     val bytes by produceState<ByteArray?>(null, path) {
         value = null
@@ -84,9 +84,15 @@ fun CatPicker(cats: List<CatProfile>, selected: String?, enabled: Boolean, vm: M
 }
 
 @Composable
-fun CatsScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit, onRecord: (String) -> Unit) {
+fun CatsScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit, onRecord: (String) -> Unit, requestedCatId: String? = null, onRequestHandled: () -> Unit = {}) {
     var query by rememberSaveable { mutableStateOf("") }
     var detailId by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(requestedCatId) {
+        if (requestedCatId != null) {
+            detailId = requestedCatId
+            onRequestHandled()
+        }
+    }
     var editing by remember { mutableStateOf<CatProfile?>(null) }
     var deleting by remember { mutableStateOf<CatProfile?>(null) }
     val selected = state.cats.find { it.id == detailId }

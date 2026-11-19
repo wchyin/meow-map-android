@@ -18,6 +18,7 @@ import android.location.LocationManager
 import android.os.Handler
 import android.os.Looper
 import android.util.DisplayMetrics
+import android.view.MotionEvent
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import androidx.compose.runtime.*
@@ -98,7 +99,7 @@ fun CampusMap(
     val campusClick by rememberUpdatedState(onCampus.takeIf { showAreas })
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
-    val view = remember { MapView(context).apply { onCreate(null) } }
+    val view = remember { GestureMapView(context).apply { onCreate(null) } }
     val density = LocalDensity.current.density
     val markerSize = (24 * density).roundToInt().coerceAtLeast(1)
     val avatars = remember(context, markerSize, density) {
@@ -263,6 +264,22 @@ fun CampusMap(
         } else {
             val target = coordinates.firstOrNull() ?: focus?.toAmapLatLng()
             if (target != null) active.animateCamera(CameraUpdateFactory.newLatLngZoom(target, 16.5))
+        }
+    }
+}
+
+/** Keep map drags and multi-touch inside the map until the gesture has finished. */
+internal class GestureMapView(context: Context) : MapView(context) {
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            parent?.requestDisallowInterceptTouchEvent(true)
+        }
+        return try {
+            super.dispatchTouchEvent(event)
+        } finally {
+            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                parent?.requestDisallowInterceptTouchEvent(false)
+            }
         }
     }
 }

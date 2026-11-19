@@ -24,7 +24,7 @@ import cn.edu.meowmap.data.RecordSummary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DetailScreen(state: MeowState, entry: RecordSummary, vm: MeowViewModel, onBack: () -> Unit, onEdit: () -> Unit, onAuth: () -> Unit, onDeleted: () -> Unit) {
+fun DetailScreen(state: MeowState, entry: RecordSummary, vm: MeowViewModel, onBack: () -> Unit, onEdit: () -> Unit, onAuth: () -> Unit, onDeleted: () -> Unit, onCat: (String) -> Unit) {
     val record = entry.record
     LaunchedEffect(record.id) { vm.interactions(record.id) }
     val photos = state.photos.filter { it.recordId == record.id }
@@ -47,6 +47,13 @@ fun DetailScreen(state: MeowState, entry: RecordSummary, vm: MeowViewModel, onBa
         }
     }
     val mine = state.user?.id == record.userId
+    val linkedCat = state.cats.find { mine && it.id == record.catId }
+    val publicCat = state.publicObservations.find { it.mapId == record.id }
+    val catName = linkedCat?.name?.takeIf(String::isNotBlank)
+        ?: publicCat?.catName?.takeIf(String::isNotBlank)
+        ?: record.catId?.let { "猫咪 ${it.takeLast(8)}" }
+    val catAvatar = linkedCat?.avatar ?: publicCat?.catAvatar
+    val catSpecies = linkedCat?.species?.takeIf(String::isNotBlank) ?: publicCat?.species.orEmpty()
     Column(Modifier.fillMaxSize()) {
         TopAppBar(title = { Text("记录详情") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回") } }, actions = {
             if (mine) {
@@ -64,10 +71,26 @@ fun DetailScreen(state: MeowState, entry: RecordSummary, vm: MeowViewModel, onBa
                     if (record.demo) Text("示例记录", color = Sage, style = MaterialTheme.typography.labelMedium)
                     Text(record.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text("${entry.author}  ·  ${displayTime(record.createdAt)}", color = Muted, style = MaterialTheme.typography.bodySmall)
+                    if (!record.catId.isNullOrBlank()) {
+                        OutlinedCard(Modifier.fillMaxWidth().testTag("linked_cat")) {
+                            Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                CatAvatar(catAvatar, catName.orEmpty(), vm)
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text("关联猫咪", style = MaterialTheme.typography.labelSmall, color = Muted)
+                                    Text(catName.orEmpty(), style = MaterialTheme.typography.titleMedium)
+                                    if (catSpecies.isNotBlank()) Text(catSpecies, style = MaterialTheme.typography.bodySmall, color = Muted)
+                                }
+                            }
+                            if (linkedCat != null) TextButton(onClick = { onCat(linkedCat.id) },
+                                modifier = Modifier.align(Alignment.End)) { Text("查看猫咪档案") }
+                        }
+                    } else Text("尚未关联猫咪档案", style = MaterialTheme.typography.bodySmall, color = Muted)
                     if (record.description.isNotBlank()) Text(record.description, style = MaterialTheme.typography.bodyLarge)
                     OutlinedButton(onClick = { map = !map }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.Place, null); Spacer(Modifier.width(6.dp)); Text(record.place) }
                     if (map) {
-                        CampusMap(listOf(entry), Modifier.fillMaxWidth().height(220.dp), focus = MapPoint(record.latitude, record.longitude))
+                        CampusMap(listOf(entry), Modifier.fillMaxWidth().height(220.dp), focus = MapPoint(record.latitude, record.longitude),
+                            recordAvatars = mapOf(record.id to catAvatar), loadAvatar = vm::catAvatar)
                         Text("坐标：%.5f, %.5f".format(record.latitude, record.longitude), color = Muted, style = MaterialTheme.typography.labelSmall)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

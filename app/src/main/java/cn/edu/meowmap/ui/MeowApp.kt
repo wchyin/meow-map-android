@@ -63,6 +63,7 @@ fun MeowApp(vm: MeowViewModel) {
         page = Page.MAP
     }
     var detailId by rememberSaveable { mutableStateOf<String?>(null) }
+    var catToOpen by rememberSaveable { mutableStateOf<String?>(null) }
     var editorId by rememberSaveable { mutableStateOf<String?>(null) }
     var auth by rememberSaveable { mutableStateOf(false) }
     var dates by rememberSaveable { mutableStateOf(false) }
@@ -128,7 +129,11 @@ fun MeowApp(vm: MeowViewModel) {
                             if (editorId == "new" || existing != null) EditorScreen(state, existing, vm, onBack = { editorId = null }, onSaved = { editorId = null })
                             else Column { TextButton(onClick = { editorId = null }) { Text("返回") }; EmptyState("记录已不存在", "无法继续编辑这条记录") }
                         }
-                        detailId != null -> if (detail != null) DetailScreen(state, detail, vm, onBack = { detailId = null }, onEdit = { editorId = detail.record.id }, onAuth = { auth = true }, onDeleted = { detailId = null })
+                        detailId != null -> if (detail != null) DetailScreen(state, detail, vm, onBack = { detailId = null }, onEdit = { editorId = detail.record.id }, onAuth = { auth = true }, onDeleted = { detailId = null }, onCat = { id ->
+                            detailId = null
+                            catToOpen = id
+                            page = Page.CATS
+                        })
                             else Column { TextButton(onClick = { detailId = null }) { Text("返回") }; EmptyState("记录已不存在", "返回列表看看其他记录") }
                         else -> screenState.SaveableStateProvider(page.name) {
                             when (page) {
@@ -144,7 +149,7 @@ fun MeowApp(vm: MeowViewModel) {
                                     ObservationScreen(state, vm, onLogin = { auth = true }, onMapRecord = { detailId = it })
                                 }
                                 Page.CATS -> key(state.user?.id) {
-                                    CatsScreen(state, vm, onLogin = { auth = true }, onRecord = ::locateRecord)
+                                    CatsScreen(state, vm, onLogin = { auth = true }, onRecord = ::locateRecord, requestedCatId = catToOpen, onRequestHandled = { catToOpen = null })
                                 }
                                 Page.STATS -> {
                                     ObservationAnalytics(state)

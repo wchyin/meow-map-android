@@ -80,8 +80,8 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
         catRows.value = rows("cats").map { CatProfile(it.text("id"), it.text("name"), it.text("species"), it.text("features"), it.text("notes"), it.text("avatar").takeIf(String::isNotBlank)?.let { avatar ->
             if (avatar.startsWith("/uploads/")) imageUrl(avatar) else avatar
         }) }
-        val mapAvatars = rows("map_records").associate {
-            "${it.text("user_id")}~${it.text("id")}" to it.text("cat_avatar")
+        val mapMetadata = rows("map_records").associateBy {
+            "${it.text("user_id")}~${it.text("id")}"
         }
         publicRows.value = rows("observations").map { row ->
             val kind = row.text("kind")
@@ -93,9 +93,9 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
                 originalTime(row.text("time")).takeIf { it > 0 } ?: originalTime(row.text("created_at")),
                 row.text("is_demo") in setOf("true", "1") || row.text("demo_batch").isNotBlank(),
                 row.text("university").ifBlank { row.text("area").substringBefore('·') },
-                catName = row.text("cat_name"),
+                catName = row.text("cat_name").ifBlank { mapMetadata[id]?.text("cat_name").orEmpty() },
                 catAvatar = row.text("cat_avatar").ifBlank {
-                    mapAvatars[id].orEmpty()
+                    mapMetadata[id]?.text("cat_avatar").orEmpty()
                 }.takeIf { it.startsWith("builtin:") },
                 description = row.text("desc").ifBlank { row.text("notes").ifBlank { row.text("gender") } },
                 count = row.text("count").toIntOrNull()?.coerceAtLeast(1) ?: 1,
