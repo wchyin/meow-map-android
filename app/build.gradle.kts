@@ -18,8 +18,8 @@ android {
         applicationId = "cn.edu.meowmap"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "0.7.4"
+        versionCode = 13
+        versionName = "0.7.5"
         buildConfigField("String", "MEOW_API_URL", "\"http://8.148.216.205/meow-api\"")
         buildConfigField("boolean", "MEOW_LOCAL_MODE", providers.gradleProperty("meowLocal").orElse("false").get())
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

@@ -92,7 +92,8 @@ fun CampusMap(
 ) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
-    val customAvatars = remember { mutableMapOf<String, Bitmap>() }
+    val customAvatars = remember { mutableStateMapOf<String, Bitmap>() }
+    val currentLoadAvatar by rememberUpdatedState(loadAvatar)
     val currentPick by rememberUpdatedState(onPick)
     val currentRecord by rememberUpdatedState(onRecord)
     val currentAreas by rememberUpdatedState(areas)
@@ -190,14 +191,14 @@ fun CampusMap(
             }
         }
     }, modifier = modifier)
-    LaunchedEffect(style, records, recordAvatars, loadAvatar) {
-        val activeStyle = style ?: return@LaunchedEffect
-        val paths = recordAvatars.values.filterNotNull().filter { !it.startsWith("builtin:") }.distinct()
+    val avatarPaths = recordAvatars.values.filterNotNull().filter { !it.startsWith("builtin:") }.distinct()
+    LaunchedEffect(avatarPaths, markerSize) {
+        val paths = avatarPaths
         for (path in paths) {
             if (path !in customAvatars) {
                 val bitmap = withContext(Dispatchers.IO) {
                     val original = if (path.startsWith("http")) {
-                        loadAvatar?.invoke(path)?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                        currentLoadAvatar?.invoke(path)?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
                     } else BitmapFactory.decodeFile(path)
                     original?.let {
                         val result = createBitmap(markerSize, markerSize)
@@ -217,12 +218,17 @@ fun CampusMap(
                 if (bitmap != null) customAvatars[path] = bitmap
             }
         }
+    }
+    // Publish points immediately; each completed avatar updates only the map presentation.
+    val loadedAvatars = customAvatars.toMap()
+    LaunchedEffect(style, records, recordAvatars, loadedAvatars) {
+        val activeStyle = style ?: return@LaunchedEffect
         val features = records.map { row ->
             val record = row.record
             val avatar = avatarPreset(record.catId ?: record.id.substringAfter('~'), recordAvatars[record.id])
             Feature.fromGeometry(MapPoint(record.latitude, record.longitude).toAmapGeometry()).apply {
                 addStringProperty("id", record.id)
-                val custom = recordAvatars[record.id]?.let { customAvatars[it] }
+                val custom = recordAvatars[record.id]?.let { loadedAvatars[it] }
                 val imageId = if (custom != null) "custom:" + record.id else avatar.id
                 if (custom != null) activeStyle.addImage(imageId, custom)
                 addStringProperty("avatar", imageId)

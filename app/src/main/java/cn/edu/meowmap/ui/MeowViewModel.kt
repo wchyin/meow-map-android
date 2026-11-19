@@ -101,7 +101,7 @@ class MeowViewModel(private val repository: MeowRepository) : ViewModel() {
     fun auth(register: Boolean, email: String, name: String, password: String, onError: ((String) -> Unit)? = null, done: () -> Unit) = action("登录成功", done, onError) {
         if (register) repository.register(email, name, password) else repository.login(email, password)
     }
-    fun logout() = action { repository.endSession(); filters.value = filters.value.copy(mine = false) }
+    fun logout() = action { filters.value = Filters(); repository.endSession() }
     suspend fun catAvatar(path: String): ByteArray? = try { repository.catAvatar(path) }
         catch (e: CancellationException) { throw e }
         catch (_: Exception) { null }

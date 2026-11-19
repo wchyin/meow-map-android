@@ -179,7 +179,7 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
     }
     override suspend fun endSession() = withContext(Dispatchers.IO) { mutex.withLock {
         try { if (token != null) api.json("/auth/logout", "POST", JsonObject()) }
-        finally { logout() }
+        finally { logout(); readSync() }
         Unit
     } }
     private fun applyProfile(response: JsonObject) {

@@ -84,6 +84,25 @@ class MeowViewModelTest {
         assertFalse(vm.state.value.filters.active)
         assertEquals("", vm.state.value.filters.query)
     }
+    @Test fun logoutClearsDateSearchAndMineFilters() = runTest(main.dispatcher) {
+        val repo = FakeRepository()
+        repo.user.value = LocalUser("alice", "a@example.com", "Alice", "", "")
+        val vm = viewModel(repo)
+        vm.query("图书馆"); vm.mine(true)
+        vm.dates(java.time.LocalDate.of(2026, 1, 1), java.time.LocalDate.of(2026, 1, 2))
+        advanceUntilIdle()
+        assertTrue(vm.state.value.filters.active)
+        vm.logout(); advanceUntilIdle()
+        assertFalse(vm.state.value.filters.active)
+    }
+    @Test fun failedLogoutRequestStillClearsFilters() = runTest(main.dispatcher) {
+        val repo = FakeRepository().apply { logoutFails = true }
+        val vm = viewModel(repo)
+        vm.mine(true); vm.query("图书馆"); advanceUntilIdle()
+        vm.logout(); advanceUntilIdle()
+        assertFalse(vm.state.value.filters.active)
+        assertEquals("退出请求失败", vm.messages.first())
+    }
     @Test fun savingDraftDoesNotPublishAndCallsCompletion() = runTest(main.dispatcher) {
         val repo = FakeRepository()
         val vm = viewModel(repo)
@@ -125,12 +144,14 @@ private class FakeRepository : MeowRepository {
     var loginGate: CompletableDeferred<Unit>? = null
     var loginCalls = 0
     var publishCalls = 0
+    var logoutFails = false
     var draft: EditorDraft? = null
     override fun records(userId: String): Flow<List<RecordSummary>> = flow { check(!readFails) { "读取失败" }; emit(emptyList()) }
     override suspend fun initialize() { if (initializationFailures-- > 0) error("初始化失败") }
     override suspend fun login(email: String, password: String) { loginCalls++; loginGate?.await(); check(!loginFails) { "登录失败" } }
     override suspend fun register(email: String, nickname: String, password: String) = Unit
     override fun logout() = Unit
+    override suspend fun endSession() { check(!logoutFails) { "退出请求失败" }; logout() }
     override suspend fun rename(name: String) = Unit
     override suspend fun save(input: RecordInput) { publishCalls++ }
     override suspend fun delete(recordId: String) = Unit
