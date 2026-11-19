@@ -136,10 +136,12 @@ class MeowViewModel(private val repository: MeowRepository) : ViewModel() {
     fun askAssistant(question: String, done: (AssistantAnswer) -> Unit, failed: (String) -> Unit) =
         action(onError = failed) { done(repository.askAssistant(question)) }
     fun createCat(name: String, done: (String) -> Unit) = action {
+        val owner = requireNotNull(user.value?.id) { "请先登录" }
         val id = java.util.UUID.randomUUID().toString()
         repository.createCat(CatProfile(id = id, name = name))
-        done(id)
+        done("$owner~$id")
     }
+    suspend fun searchCats(query: String, offset: Int = 0) = repository.searchCats(query, offset)
     fun saveCat(cat: CatProfile, done: () -> Unit) = action("猫咪档案已保存", done) { repository.saveCat(cat) }
     fun deleteCat(id: String, done: () -> Unit) = action("猫咪档案已删除，历史观察仍保留", done) { repository.deleteCat(id) }
     fun delete(id: String, done: () -> Unit) = action("记录已删除", done) { repository.delete(id) }

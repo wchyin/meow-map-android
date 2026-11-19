@@ -32,6 +32,7 @@ interface MeowRepository {
     suspend fun askAssistant(question: String): AssistantAnswer = error("寻猫小助手需要云端账号")
     suspend fun exportBackup(): ByteArray { error("当前数据源不支持备份") }
     suspend fun importBackup(bytes: ByteArray): Int { error("当前数据源不支持导入") }
+    suspend fun searchCats(query: String, offset: Int = 0): CatSearchPage = error("当前数据源不支持共享猫咪搜索")
     val cats: Flow<List<CatProfile>> get() = flowOf(emptyList())
     val notice: Flow<String?> get() = flowOf(null)
     suspend fun refresh() = initialize()

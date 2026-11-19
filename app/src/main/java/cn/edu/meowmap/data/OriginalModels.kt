@@ -6,7 +6,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.math.*
 
-data class CatProfile(val id: String = "", val name: String = "", val species: String = "", val features: String = "", val notes: String = "", val avatar: String? = null)
+data class CatProfile(val id: String = "", val name: String = "", val species: String = "", val features: String = "", val notes: String = "", val avatar: String? = null, val isMine: Boolean = true)
 
 data class PublicObservation(
     val key: String,
@@ -79,4 +79,18 @@ internal fun publicAvatarUrl(value: String, endpoint: String): String? {
     val root = endpoint.trimEnd('/')
     val route = value.removePrefix(root)
     return if (route.matches(Regex("/uploads/[a-f0-9-]{36}"))) root + route else null
+}
+
+data class CatSearchPage(val items: List<CatProfile>, val nextOffset: Int? = null)
+
+internal fun parseCloudCat(row: JsonObject, endpoint: String): CatProfile = CatProfile(
+    id = row.text("id"), name = row.text("name"), species = row.text("species"),
+    features = row.text("features"), notes = if (row.text("is_mine", "true") == "true") row.text("notes") else "",
+    avatar = row.text("avatar").takeIf(String::isNotBlank)?.let { publicAvatarUrl(it, endpoint) },
+    isMine = row.text("is_mine", "true") == "true")
+
+internal fun catReferencePath(id: String): String {
+    val parts = id.split('~')
+    require(parts.size in 1..2 && parts.all { it.matches(Regex("[\\w-]{1,80}")) }) { "无效猫咪 ID" }
+    return id
 }

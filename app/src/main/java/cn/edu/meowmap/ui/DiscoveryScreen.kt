@@ -280,7 +280,7 @@ internal fun catTracks(
         val record = it.record
         !record.catId.isNullOrBlank() && times.getValue(record.id) > 0 &&
             record.latitude in -85.0..85.0 && record.longitude in -180.0..180.0
-    }.groupBy { "${it.record.userId}~${it.record.catId}" }.map { (key, rows) ->
+    }.groupBy { requireNotNull(it.record.catId).let { id -> if ('~' in id) id else "${it.record.userId}~$id" } }.map { (key, rows) ->
         val first = rows.first()
         val record = first.record
         val catId = requireNotNull(record.catId)
@@ -288,7 +288,9 @@ internal fun catTracks(
         val name = ownName ?: rows.firstNotNullOfOrNull { observations[it.record.id]?.catName?.takeIf(String::isNotBlank) }
             ?: "猫咪 ${catId.takeLast(8)}"
         val ordered = rows.sortedBy { times.getValue(it.record.id) }
-        CatTrack(key, "$name · ${first.author}", ordered, times.getValue(ordered.first().record.id),
+        val authors = rows.map { it.record.userId }.distinct().size
+        val label = if (authors > 1) "$name · $authors 位观察者" else "$name · ${first.author}"
+        CatTrack(key, label, ordered, times.getValue(ordered.first().record.id),
             times.getValue(ordered.last().record.id))
     }.sortedBy { it.name }
 }

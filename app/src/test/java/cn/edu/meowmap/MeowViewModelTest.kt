@@ -103,6 +103,15 @@ class MeowViewModelTest {
         assertFalse(vm.state.value.filters.active)
         assertEquals("退出请求失败", vm.messages.first())
     }
+    @Test fun newlyCreatedCatSelectionUsesSharedIdentity() = runTest(main.dispatcher) {
+        val repo = FakeRepository()
+        repo.user.value = LocalUser("alice", "a@example.com", "Alice", "", "")
+        val vm = viewModel(repo)
+        var selected: String? = null
+        vm.createCat("小橘") { selected = it }; advanceUntilIdle()
+        assertEquals("alice~${repo.createdCat!!.id}", selected)
+        assertEquals("小橘", repo.createdCat!!.name)
+    }
     @Test fun savingDraftDoesNotPublishAndCallsCompletion() = runTest(main.dispatcher) {
         val repo = FakeRepository()
         val vm = viewModel(repo)
@@ -145,6 +154,8 @@ private class FakeRepository : MeowRepository {
     var loginCalls = 0
     var publishCalls = 0
     var logoutFails = false
+    var createdCat: CatProfile? = null
+    override suspend fun createCat(cat: CatProfile) { createdCat = cat }
     var draft: EditorDraft? = null
     override fun records(userId: String): Flow<List<RecordSummary>> = flow { check(!readFails) { "读取失败" }; emit(emptyList()) }
     override suspend fun initialize() { if (initializationFailures-- > 0) error("初始化失败") }

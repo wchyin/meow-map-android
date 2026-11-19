@@ -47,7 +47,7 @@ fun DetailScreen(state: MeowState, entry: RecordSummary, vm: MeowViewModel, onBa
         }
     }
     val mine = state.user?.id == record.userId
-    val linkedCat = state.cats.find { mine && it.id == record.catId }
+    val linkedCat = state.cats.find { it.id == record.catId }
     val publicCat = state.publicObservations.find { it.mapId == record.id }
     val catName = linkedCat?.name?.takeIf(String::isNotBlank)
         ?: publicCat?.catName?.takeIf(String::isNotBlank)

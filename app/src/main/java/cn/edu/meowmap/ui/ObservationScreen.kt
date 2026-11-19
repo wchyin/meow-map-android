@@ -178,7 +178,7 @@ private fun ObservationEditor(existing: Observation?, busy: Boolean, cats: List<
                     }, selected.hour, selected.minute, true).show()
                 }) { Text(selected.format(DateTimeFormatter.ofPattern("HH:mm"))) }
             }
-            CatPicker(cats, catId, !busy, vm) { catId = it; dirty = true }
+            CatPicker(cats, catId, !busy, vm, onProfileSelected = { if (name.isBlank()) name = it.name.take(60) }) { catId = it; dirty = true }
             OutlinedTextField(place, { place = it; dirty = true }, label = { Text("地点") }, singleLine = true, enabled = !busy, modifier = Modifier.testTag("observation_place"))
             OutlinedTextField(count, { count = it; dirty = true }, label = { Text("数量（1～999）") }, singleLine = true, enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.testTag("observation_count"))
             OutlinedTextField(name, { name = it; dirty = true }, label = { Text("猫咪名称 / 品种") }, singleLine = true, enabled = !busy, modifier = Modifier.testTag("observation_name"))

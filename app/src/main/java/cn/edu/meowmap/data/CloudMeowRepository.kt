@@ -77,9 +77,7 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
             val id = cloudRecord(row).id
             images(row).mapIndexed { index, path -> RecordPhoto("$id:$index", id, imageUrl(path), index) }
         }
-        catRows.value = rows("cats").map { CatProfile(it.text("id"), it.text("name"), it.text("species"), it.text("features"), it.text("notes"), it.text("avatar").takeIf(String::isNotBlank)?.let { avatar ->
-            if (avatar.startsWith("/uploads/")) imageUrl(avatar) else avatar
-        }) }
+        catRows.value = rows("cats").map { parseCloudCat(it, endpointRoot) }
         val mapMetadata = rows("map_records").associateBy {
             "${it.text("user_id")}~${it.text("id")}"
         }
@@ -319,16 +317,28 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
         val row = commentRows.value.find { it.comment.id == commentId && it.comment.userId == account() } ?: error("只能删除自己的评论")
         write("/comments/${remoteId(commentId)}", "DELETE"); loadInteractions(row.comment.recordId)
     }
+    override suspend fun searchCats(query: String, offset: Int): CatSearchPage = withContext(Dispatchers.IO) { mutex.withLock {
+        account()
+        require(query.trim().length in 1..170 && offset in 0..10000) { "请输入猫咪名字或 ID" }
+        val encoded = java.net.URLEncoder.encode(query.trim(), "UTF-8")
+        val page = api.json("/cats/search?q=$encoded&offset=$offset").asJsonObject
+        CatSearchPage(page.getAsJsonArray("items").map { parseCloudCat(it.asJsonObject, endpointRoot) },
+            page.get("nextOffset")?.takeUnless { it.isJsonNull }?.asInt)
+    } }
     override suspend fun createCat(cat: CatProfile) = saveCat(cat, true)
     override suspend fun saveCat(cat: CatProfile) = saveCat(cat, cat.id.isBlank())
     private suspend fun saveCat(cat: CatProfile, create: Boolean) = withContext(Dispatchers.IO) { mutex.withLock {
+        require(cat.isMine) { "只有创建者可以修改猫咪基础资料" }
         require(cat.name.trim().length in 1..80) { "猫咪昵称需要 1～80 字" }
-        write("/cats" + if (create) "" else "/${remoteId(cat.id)}", if (create) "POST" else "PUT", Gson().toJsonTree(cat).asJsonObject.apply {
+        write("/cats" + if (create) "" else "/${catReferencePath(cat.id)}", if (create) "POST" else "PUT", Gson().toJsonTree(cat).asJsonObject.apply {
+            remove("isMine")
             if (cat.id.isBlank()) addProperty("id", UUID.randomUUID().toString())
             addProperty("avatar", cat.avatar?.let { if (it.startsWith("builtin:")) it else upload(it) }.orEmpty())
         }); readSync()
     } }
-    override suspend fun deleteCat(id: String) = withContext(Dispatchers.IO) { mutex.withLock { write("/cats/${remoteId(id)}", "DELETE"); readSync() } }
+    override suspend fun deleteCat(id: String) = withContext(Dispatchers.IO) { mutex.withLock {
+        require(catRows.value.any { it.id == id && it.isMine }) { "只有创建者可以删除猫咪档案" }
+        write("/cats/${catReferencePath(id)}", "DELETE"); readSync() } }
     override suspend fun saveObservation(input: ObservationInput) = withContext(Dispatchers.IO) { mutex.withLock {
         input.validated()
         val body = rows("records").find { it.text("id") == input.id }?.deepCopy() ?: JsonObject()
@@ -355,10 +365,12 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
         val owner = account()
         // Require a fresh complete snapshot; never export somebody else's public records.
         sync()
-        val payload = JsonObject().apply { addProperty("app", "meow-meow-map"); addProperty("version", 1) }
+        val payload = JsonObject().apply { addProperty("app", "meow-meow-map"); addProperty("version", 1); addProperty("owner", owner) }
         val photos = mutableMapOf<String, ByteArray>()
         for (kind in listOf("cats", "records", "map_records")) {
-            val selected = rows(kind).filter { kind != "map_records" || it.text("user_id") == owner }.map { it.deepCopy() }
+            val selected = rows(kind).filter {
+                (kind != "map_records" || it.text("user_id") == owner) && (kind != "cats" || it.text("is_mine", "true") == "true")
+            }.map { it.deepCopy().apply { if (kind == "cats") addProperty("id", remoteId(text("id"))) } }
             for (row in selected) {
                 suspend fun archiveImage(path: String): String {
                     imageUrl(path) // Validate server-relative upload IDs before requesting them.
@@ -397,9 +409,14 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
         val uploaded = mutableMapOf<String, String>()
         try {
             for (kind in listOf("cats", "records", "map_records")) {
-                val existing = api.json("/$kind" + if (kind == "map_records") "?mine=1" else "").asJsonArray.map { it.asJsonObject.text("id") }.toMutableSet()
+                val existing = api.json("/$kind" + if (kind == "map_records") "?mine=1" else "").asJsonArray.map { it.asJsonObject }.filter { kind != "cats" || it.text("is_mine", "true") == "true" }.map { if (kind == "cats") remoteId(it.text("id")) else it.text("id") }.toMutableSet()
                 payload.getAsJsonArray(kind)?.forEach { element ->
-                    val row = element.asJsonObject.deepCopy(); val id = row.text("id")
+                    val row = element.asJsonObject.deepCopy()
+                    val originalOwner = payload.text("owner")
+                    if (kind != "cats" && originalOwner.isNotBlank() && row.text("cat_id").startsWith("$originalOwner~")) {
+                        row.addProperty("cat_id", remoteId(row.text("cat_id")))
+                    }
+                    val id = row.text("id")
                     if (id !in existing) {
                         row.remove("user_id"); row.remove("profiles"); row.remove("is_mine")
                         suspend fun restoreImage(path: String): String =
