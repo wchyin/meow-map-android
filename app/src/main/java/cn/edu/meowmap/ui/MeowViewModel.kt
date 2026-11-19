@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 data class MeowState(
+    val statisticsSnapshot: String? = null,
     val profileAvatar: String? = null,
     val publicObservations: List<PublicObservation> = emptyList(),
     val ready: Boolean = false,
@@ -56,6 +57,7 @@ class MeowViewModel(private val repository: MeowRepository) : ViewModel() {
     val state = combine(user, records, photos, comments, filters) { u, rs, ps, cs, fs ->
         MeowState(user = u, allRecords = rs, records = rs.filtered(fs, u?.id), photos = ps, comments = cs, filters = fs)
     }.combine(observations) { state, notes -> state.copy(observations = notes.filter { it.userId == state.user?.id }) }
+        .combine(repository.statisticsSnapshot) { state, snapshot -> state.copy(statisticsSnapshot = snapshot) }
         .combine(repository.profileAvatar) { state, avatar -> state.copy(profileAvatar = avatar) }
         .combine(repository.publicObservations) { state, observations -> state.copy(publicObservations = observations) }
         .combine(repository.cats) { state, cats -> state.copy(cats = cats) }

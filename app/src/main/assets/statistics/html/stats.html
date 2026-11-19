@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data:;">
+    <title>统计面板</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/icons.css">
+    <style>
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid #eee3da;
+            border-radius: 14px;
+            padding: 18px;
+            text-align: center;
+        }
+        .stat-value { font-size: 30px; font-weight: 800; color: var(--accent-color); }
+        .stat-label { margin-top: 4px; color: #8c7b71; font-size: 12px; }
+
+        .stats-section {
+            background: var(--card-bg);
+            border: 1px solid #eee3da;
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 18px;
+        }
+        .stats-section h3 { text-align: left; margin-bottom: 14px; font-size: 15px; }
+
+        .bar-row {
+            display: grid;
+            grid-template-columns: minmax(0, 36%) minmax(0, 1fr) 4ch;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 9px;
+            font-size: 13px;
+        }
+        .bar-name { overflow-wrap:anywhere; }
+        .bar-track { border-radius: 8px; height: 10px; overflow: hidden; }
+        .bar-fill { height: 100%; }
+        .bar-count { text-align: right; font-variant-numeric: tabular-nums; }
+
+        .month-chart {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: clamp(3px, 1vw, 12px);
+            height: 176px;
+        }
+        .month-col { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 8px; padding-top: 22px; text-align: center; min-width: 0; }
+        .month-plot { display: flex; align-items: flex-end; justify-content: center; border-bottom: 1px solid var(--border-color); }
+        .month-bar {
+            position: relative;
+            width: 70%;
+            max-width: 46px;
+            background: linear-gradient(180deg, #f0a58a, #d86f4e);
+            border-radius: 8px 8px 3px 3px;
+        }
+        .month-label { font-size: 11px; line-height: 1.35; font-variant-numeric: tabular-nums; }
+        .month-label small { display: block; font-size: 10px; }
+        .month-count { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 4px; font-size: 12px; font-weight: 700; color: var(--primary-color); }
+
+        .empty-tip { color: #8c7b71; font-size: 13px; text-align: center; padding: 24px 0; }
+    </style>
+    <link rel="stylesheet" href="../css/workspace.css">
+    <link rel="stylesheet" href="../css/light.css">
+<style>
+[hidden] { display: none !important; }
+.stats-page, .stats-page * { box-sizing: border-box; }
+.stats-page .container { min-width: 0; }
+.visualization-picker { display: grid; gap: 8px; margin-bottom: 20px; color: #304b55; font-size: 14px; font-weight: 600; }
+.visualization-picker select { width: 100%; max-width: 420px; min-height: 44px; background: white; border: 1px solid #dce7eb; border-radius: 8px; padding: 10px; color: #304b55; }
+@media(max-width:600px) {
+  .container { padding: 16px !important; }
+  .analytics-controls { flex-wrap: wrap; gap: 12px; }
+  .stats-charts { grid-template-columns: minmax(0,1fr) !important; }
+  .stats-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+</style></head>
+<body class="stats-page">
+    <div class="container" style="max-width: 100%;">
+        <div class="workspace-intro"><h2>观察概览</h2><p>从一次偶遇，到看见猫咪们的生活规律。</p></div>
+        <div class="analytics-controls"><label>统计范围<select id="stats-scope"><option value="mine">我的记录</option><option value="public">公开地图</option></select></label><label class="include-demo"><input id="include-demo" type="checkbox" checked>包含示例记录</label></div>
+        <p id="analytics-status" role="status" class="analytics-status"></p>
+        <div id="stats-grid" class="stats-grid"></div>
+
+        <label class="visualization-picker">展示内容<select id="visualization-filter" aria-label="选择可视化内容">
+<option value="all">全部可视化</option>
+<option value="overview">观察概览</option>
+<option value="trends">观察趋势</option>
+<option value="composition">来源与品种构成</option>
+<option value="activity">观察时段</option>
+<option value="locations">地点与校园</option>
+<option value="daily-chart">近 28 天观察趋势</option>
+<option value="source-chart">记录来源占比</option>
+<option value="breed-chart">品种／花色构成</option>
+<option value="activity-heatmap">一周中的观察时段</option>
+<option value="weekday-chart">星期分布</option>
+<option value="month-chart">最近 6 个月记录趋势</option>
+<option value="top-locations">最常出没地点 Top 5</option>
+<option value="top-species">品种／花色分布 Top 5</option>
+<option value="top-areas">校园覆盖分布</option>
+<option value="time-buckets">猫咪出没时段</option>
+</select></label>
+<div class="stats-charts">
+        <section class="stats-section chart-wide"><h3>近 28 天观察趋势</h3><p class="chart-caption">按观察日期统计记录条数</p><div id="daily-chart"></div></section>
+        <section class="stats-section"><h3>记录来源占比</h3><div id="source-chart"></div></section>
+        <section class="stats-section"><h3>品种 / 花色构成</h3><div id="breed-chart"></div></section>
+        <section class="stats-section chart-wide"><h3>一周中的观察时段</h3><p class="chart-caption">星期 × 小时；颜色深浅表示记录条数，鼠标悬停查看数量</p><div class="heatmap-scroll" id="activity-heatmap"></div></section>
+        <section class="stats-section"><h3>星期分布</h3><div id="weekday-chart"></div></section>
+        <div class="stats-section">
+            <h3>最近 6 个月记录趋势</h3>
+            <div id="month-chart" class="month-chart"></div>
+        </div>
+
+        <div class="stats-section">
+            <h3>最常出没地点 Top 5</h3>
+            <div id="top-locations"></div>
+        </div>
+
+        <div class="stats-section">
+            <h3>品种/花色分布 Top 5</h3>
+            <div id="top-species"></div>
+        </div>
+
+        <div class="stats-section">
+            <h3>校园覆盖分布</h3>
+            <div id="top-areas"></div>
+        </div>
+
+        <div class="stats-section">
+            <h3>猫咪出没时段</h3>
+            <div id="time-buckets"></div>
+        </div>
+        </div>
+    </div>
+
+<script src="../js/utils.js"></script>
+<script src="../js/activity.js"></script>
+<script src="../js/areas.js"></script>
+<script>
+    const { escapeHtml, computeStats, detectArea, formatArea, wgs84ToGcj02 } = window.MeowStatsUtils
+    const { activityAnalytics } = window.MeowActivity
+    const areasData = window.MeowAreas
+    for (const university of areasData.universities) for (const campus of university.campuses || []) {
+        for (const feature of [campus, ...(campus.zones || [])]) {
+            const rings = feature.polygons || (feature.polygon ? [feature.polygon] : [])
+            feature.polygons_gcj02 = rings.map(ring => ring.map(([lat,lng]) => wgs84ToGcj02(lat,lng)))
+        }
+    }
+    let snapshot = { records: [], map_records: [], cats: [], owner: null }
+    const ipcRenderer = { invoke: async route => {
+        if (route === 'get_records') return snapshot.records || []
+        if (route === 'get_cats') return snapshot.cats || []
+        const maps = snapshot.map_records || []
+        return route === 'get_own_map_records' ? maps.filter(row => row.user_id === snapshot.owner) : maps
+    } }
+    window.updateStatistics = data => {
+        snapshot = data
+        loadStats()
+    }
+    const chartColors = ['#367f83','#7a9dbe','#b79e7e','#8e92b1','#7caa8c','#ad818b']
+    let refreshNumber = 0
+    const statusElement = document.getElementById('analytics-status')
+    function areaTextOf(record) {
+        if (record.area) return record.area
+        const match = Number.isFinite(record.lat) && Number.isFinite(record.lng) ? detectArea(areasData,record.lat,record.lng) : null
+        return match ? formatArea(match) : ''
+    }
+    function statCard(value,label) { return `<div class="stat-card"><div class="stat-value">${escapeHtml(value)}</div><div class="stat-label">${escapeHtml(label)}</div></div>` }
+    function renderBars(id,items,maxCount) {
+        const target = document.getElementById(id)
+        if (!items.length || !items.some(item=>item.count)) { target.innerHTML='<p class="empty-tip">还没有足够的观察记录。</p>'; return }
+        const max=Math.max(maxCount||0,...items.map(item=>item.count),1)
+        target.innerHTML=items.map(item=>`<div class="bar-row"><div class="bar-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div><div class="bar-track"><div class="bar-fill" style="width:${item.count/max*100}%"></div></div><div class="bar-count">${item.count}</div></div>`).join('')
+    }
+    function renderDonut(id,items) {
+        const target=document.getElementById(id),total=items.reduce((sum,item)=>sum+item.count,0)
+        if (!total) { target.innerHTML='<p class="empty-tip">暂无记录。</p>'; return }
+        const shown=items.slice(0,5)
+        if(items.length>5)shown.push({name:'其他',count:items.slice(5).reduce((n,item)=>n+item.count,0)})
+        let offset=0
+        const arcs=shown.map((item,i)=>{const length=item.count/total*314.159;const arc=`<circle cx="70" cy="70" r="50" fill="none" stroke="${chartColors[i]}" stroke-width="18" stroke-dasharray="${length} ${314.159-length}" stroke-dashoffset="${-offset}" transform="rotate(-90 70 70)"><title>${escapeHtml(item.name)}：${item.count} 条</title></circle>`;offset+=length;return arc}).join('')
+        target.innerHTML=`<div class="donut-layout"><svg viewBox="0 0 140 140" role="img" aria-label="${escapeHtml(shown.map(item=>item.name+' '+item.count+'条').join('，'))}">${arcs}<text x="70" y="69" text-anchor="middle" fill="#304b55" font-size="22">${total}</text><text x="70" y="88" text-anchor="middle" fill="#657d86" font-size="10">条记录</text></svg><ul class="chart-legend">${shown.map((item,i)=>`<li><span class="legend-dot" style="background:${chartColors[i]}"></span><span>${escapeHtml(item.name)}</span><b>${item.count}</b><span>${Math.round(item.count/total*100)}%</span></li>`).join('')}</ul></div>`
+    }
+    function renderDaily(days) {
+        const max=Math.max(...days.map(day=>day.count),1),width=640
+        const points=days.map((day,i)=>[40+i*(width-58)/27,145-day.count/max*115])
+        const line=points.map(point=>point.join(',')).join(' ')
+        document.getElementById('daily-chart').innerHTML=`<svg class="daily-chart" viewBox="0 0 640 185" role="img" aria-label="近28天记录趋势，最高每天${max}条"><title>${escapeHtml(days.map(day=>day.date+' '+day.count+'条').join('；'))}</title>${[0,.5,1].map(f=>`<line x1="40" y1="${145-f*115}" x2="622" y2="${145-f*115}" stroke="#e5eef0"/><text x="29" y="${149-f*115}" text-anchor="end" font-size="11" fill="#657d86">${Math.round(f*max*10)/10}</text>`).join('')}<polyline points="${line}" fill="none" stroke="#367f83" stroke-width="2.5" stroke-linejoin="round"/>${points.map((point,i)=>`<circle cx="${point[0]}" cy="${point[1]}" r="3" fill="#367f83"><title>${days[i].date}：${days[i].count} 条</title></circle>`).join('')}${[0,9,18,27].map(i=>`<text x="${points[i][0]}" y="172" text-anchor="middle" font-size="11" fill="#657d86">${days[i].date.slice(5)}</text>`).join('')}</svg>`
+    }
+    function renderHeatmap(heat) {
+        const max=Math.max(...heat.flat(),1),colors=['#edf4f6','#cbe4e0','#9bcac4','#68aba6','#367f83']
+        const names=['周一','周二','周三','周四','周五','周六','周日']
+        document.getElementById('activity-heatmap').innerHTML=`<table class="heatmap"><caption class="chart-caption">0 条（浅）→ ${max} 条（深）；以此电脑本地时区显示</caption><thead><tr><th>星期</th>${heat[0].map((_,h)=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${heat.map((row,d)=>`<tr><th>${names[d]}</th>${row.map((count,h)=>`<td style="background:${colors[count?Math.max(1,Math.ceil(count/max*4)):0]}" title="${names[d]} ${h}:00–${h}:59：${count} 条"><span class="sr-only">${count}</span></td>`).join('')}</tr>`).join('')}</tbody></table>`
+    }
+    async function loadStats() {
+        const turn=++refreshNumber
+        try {
+            const isPublic=document.getElementById('stats-scope').value==='public'
+            const [ordinary,mapped,cats]=await Promise.all([isPublic?Promise.resolve([]):ipcRenderer.invoke('get_records'),ipcRenderer.invoke(isPublic?'get_map_records':'get_own_map_records'),isPublic?Promise.resolve([]):ipcRenderer.invoke('get_cats')])
+            if(turn!==refreshNumber)return
+            const includeDemo=document.getElementById('include-demo').checked
+            const filter=rows=>(rows||[]).filter(row=>includeDemo||!row.is_demo)
+            const names=new Map((cats||[]).map(cat=>[String(cat.id),cat]))
+            const records=filter(ordinary),mapRecords=filter(mapped).map(row=>({...row,area:areaTextOf(row),species:row.species||(!isPublic?names.get(String(row.cat_id))?.species:'')||''}))
+            const visibleCats=(cats||[]).filter(cat=>includeDemo||!cat.is_demo)
+            const all=[...records,...mapRecords]
+            const stats=computeStats(records,mapRecords,isPublic?[]:visibleCats)
+            const activity=activityAnalytics(all)
+            statusElement.textContent=`${isPublic?'公开地图':'我的观察与地图打卡'} · ${all.length} 条记录${includeDemo?'（含 '+activity.demoCount+' 条示例）':'（不含示例）'}；图表仅描述记录分布，不代表猫咪种群数量。`
+            document.getElementById('stats-grid').innerHTML=statCard(stats.monthCatsSeen,'本月遇见只次')+statCard(stats.recordCount,'累计记录条数')+statCard(stats.mapCount,'地图打卡')+statCard(isPublic?new Set(mapRecords.filter(r=>r.cat_id).map(r=>r.user_id+':'+r.cat_id)).size:stats.catProfileCount,isPublic?'关联猫咪':'猫咪档案')+statCard(stats.totalCatsSeen,'累计遇见只次')
+            const maxMonth=Math.max(...stats.monthly.map(m=>m.count),1)
+            document.getElementById('month-chart').innerHTML=stats.monthly.map(m=>`<div class="month-col" title="${m.month}：${m.count} 条"><div class="month-plot"><div class="month-bar" style="height:${m.count/maxMonth*100}%"><span class="month-count">${m.count||''}</span></div></div><div class="month-label">${Number(m.month.slice(5))} 月<small>${m.month.slice(0,4)}</small></div></div>`).join('')
+            renderBars('top-locations',stats.topLocations)
+            renderBars('top-species',stats.topSpecies)
+            renderBars('top-areas',activity.campuses)
+            renderBars('time-buckets',stats.timeBuckets)
+            renderBars('weekday-chart',activity.weekdays)
+            renderDaily(activity.days)
+            renderHeatmap(activity.heat)
+            renderDonut('source-chart',[{name:'普通观察',count:records.length},{name:'地图打卡',count:mapRecords.length}].filter(item=>item.count))
+            renderDonut('breed-chart',activity.species)
+        } catch(error) { if(turn===refreshNumber) statusElement.textContent='统计读取失败：'+error.message }
+    }
+    document.getElementById('include-demo').addEventListener('change',loadStats)
+    document.getElementById('stats-scope').addEventListener('change',loadStats)
+    const chartGroups = {
+        trends: ['daily-chart','month-chart'],
+        composition: ['source-chart','breed-chart','top-species'],
+        activity: ['activity-heatmap','weekday-chart','time-buckets'],
+        locations: ['top-locations','top-areas']
+    }
+    const picker = document.getElementById('visualization-filter')
+    function selectVisualization() {
+        const value = picker.value
+        document.getElementById('stats-grid').hidden = !['all','overview'].includes(value)
+        document.querySelectorAll('.stats-charts > *').forEach(panel => {
+            const chart = panel.querySelector('[id]')
+            panel.hidden = value !== 'all' && !(chartGroups[value] || [value]).includes(chart.id)
+        })
+        try { localStorage.setItem('meow-statistics-view', value) } catch {}
+    }
+    try {
+        const stored = localStorage.getItem('meow-statistics-view')
+        if ([...picker.options].some(option => option.value === stored)) picker.value = stored
+    } catch {}
+    picker.addEventListener('change', selectVisualization)
+    selectVisualization()
+    loadStats()
+    window.addEventListener('focus',loadStats)
+</script>
+</body>
+</html>

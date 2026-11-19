@@ -34,6 +34,8 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
     private val observationRows = MutableStateFlow<List<Observation>>(emptyList())
     private val catRows = MutableStateFlow<List<CatProfile>>(emptyList())
     private val message = MutableStateFlow<String?>(null)
+    private val statistics = MutableStateFlow<String?>(null)
+    override val statisticsSnapshot: Flow<String?> = statistics
     private var raw = JsonObject()
     private var restored = false
     override val user: Flow<LocalUser?> = currentUser
@@ -57,6 +59,12 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
     }
     private fun rows(kind: String): List<JsonObject> = raw.getAsJsonArray(kind)?.map { it.asJsonObject } ?: emptyList()
     private fun render() {
+        statistics.value = JsonObject().apply {
+            add("records", raw.getAsJsonArray("records") ?: JsonArray())
+            add("map_records", raw.getAsJsonArray("map_records") ?: JsonArray())
+            add("cats", raw.getAsJsonArray("cats") ?: JsonArray())
+            add("owner", currentUser.value?.id?.let(::JsonPrimitive) ?: JsonNull.INSTANCE)
+        }.toString()
         val old = recordRows.value.associateBy { it.record.id }
         recordRows.value = rows("map_records").map { row ->
             val record = cloudRecord(row)

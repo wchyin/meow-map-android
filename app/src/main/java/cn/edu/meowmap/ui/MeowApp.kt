@@ -34,8 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cn.edu.meowmap.BuildConfig
 import cn.edu.meowmap.R
-import cn.edu.meowmap.data.CampusAreas
-import androidx.compose.ui.platform.LocalContext
 
 private enum class Page(val label: String, val icon: ImageVector) {
     MAP("发现地图", Icons.Outlined.Map),
@@ -147,12 +145,7 @@ fun MeowApp(vm: MeowViewModel) {
                                     CatsScreen(state, vm, onLogin = { auth = true }, onRecord = ::locateRecord)
                                 }
                                 Page.STATS -> {
-                                    val context = LocalContext.current
-                                    val campuses = remember(context) { CampusAreas.load(context) }
-                                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-                                        verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                        ObservationAnalytics(state, campuses)
-                                    }
+                                    ObservationAnalytics(state)
                                 }
                                 Page.ASSISTANT -> AssistantScreen(state, vm, onBack = { page = Page.MAP },
                                     onLogin = { auth = true }, onRecord = ::locateRecord)

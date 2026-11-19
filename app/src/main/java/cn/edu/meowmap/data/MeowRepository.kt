@@ -24,6 +24,7 @@ data class RecordInput(
 
 /** The UI only talks to this contract; a remote source can be added behind it. */
 interface MeowRepository {
+    val statisticsSnapshot: Flow<String?> get() = flowOf(null)
     val profileAvatar: Flow<String?> get() = flowOf(null)
     suspend fun catAvatar(path: String): ByteArray? = null
     suspend fun updateProfile(name: String, avatar: Uri?, resetAvatar: Boolean) = rename(name)

@@ -1,0 +1,10 @@
+/* Light editorial palette: neutral surfaces and restrained categorical accents. */
+:root {
+ --primary-color:#304b55; --text-color:#304b55; --muted-color:#657d86;
+ --accent-color:#367f83; --bg-color:#f4f8fa; --card-bg:#fff;
+ --border-color:#dce7eb; --shadow:none; --hover-shadow:0 8px 28px #304b5512;
+ --app-sidebar:#fff; --app-sidebar-border:#e1ebee; --app-surface:#fff;
+ --app-page:#f4f8fa; --app-ink:#304b55; --app-muted:#657d86;
+ --app-primary:#d5eeeb; --app-primary-dark:#286c70; --app-primary-soft:#eaf6f4;
+ --app-focus:#9dd4ce;
+}

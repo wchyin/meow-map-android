@@ -1,0 +1,51 @@
+/* Shared workspace refinements. Loaded after each page's local layout rules. */
+.records-page, .cats-page, .stats-page { align-items: stretch; }
+.records-page > .container, .cats-page > .container, .stats-page > .container {
+    padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent;
+}
+.cats-header { padding-bottom: 16px; border-bottom: 1px solid var(--border-color); }
+.cats-header h2, .stats-page h2 { text-align: left; font-size: 18px; }
+.cat-card { border-color: var(--border-color); box-shadow: none; }
+.cat-card:hover { transform: none; border-color: var(--accent-color); box-shadow: none; }
+.cat-card-avatar { font-size: 22px; font-weight: 600; color: #49352d; }
+.cat-card-meta, .empty-tip, .stat-label, .bar-count, .month-label { color: var(--muted-color); }
+.cat-card-name { overflow-wrap: anywhere; }
+.btn-plain, .btn-cancel { color: #49352d; background: #eee7e1; }
+.btn-plain:hover, .btn-cancel:hover { background: #e2d7ce; }
+.records-page .toolbar { gap: 16px; margin-bottom: 18px; }
+.records-page .search-box { width: 100%; max-width: 360px; margin: 0; min-height: 40px; border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 12px; background: #fff; }
+.records-page .toolbar button { flex-shrink: 0; }
+.records-table-scroll { overflow-x: auto; background: #fff; border: 1px solid var(--border-color); border-radius: 6px; }
+.records-page table { min-width: 720px; margin: 0; border-radius: 0; box-shadow: none; font-size: 13px; }
+.records-page th { background: #eee7e1; color: #49352d; white-space: nowrap; }
+.records-page td { overflow-wrap: anywhere; max-width: 240px; font-variant-numeric: tabular-nums; }
+.records-page th, .records-page td { padding: 12px; }
+.records-page td:last-child { min-width: 110px; white-space: nowrap; }
+.records-page .editBtn, .records-page .delBtn { background: transparent; min-height: 32px; padding: 0 8px; }
+.records-page .editBtn { color: #93432d; }
+.records-page .delBtn { color: #a43127; }
+.records-page .editBtn:hover, .records-page .delBtn:hover { background: #f6eee8; }
+#records-empty { padding: 28px 12px; color: var(--muted-color); text-align: center; }
+.stats-page .stats-grid { gap: 0; border-bottom: 1px solid var(--border-color); }
+.stats-page .stat-card { background: transparent; border: 0; border-radius: 0; padding: 12px 20px 24px 0; text-align: left; }
+.stats-page .stat-value { color: var(--primary-color); font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.stats-page .stats-section { background: transparent; border: 0; border-radius: 0; padding: 16px 0 24px; margin-bottom: 0; border-bottom: 1px solid var(--border-color); }
+.stats-page .bar-fill, .stats-page .month-bar { background: var(--accent-color); border-radius: 3px; }
+.stats-page .bar-track { background: #e9dfd7; height: 12px; border-radius: 3px; }
+.map-tools { position: absolute; top: 16px; right: 16px; z-index: 1000; display: flex; padding: 4px; gap: 4px; background: white; border-radius: 6px; box-shadow: 0 2px 8px #33292326; }
+.map-tools #list-btn, .map-tools #heat-btn, .map-tools #areas-btn { position: static; margin: 0; padding: 0 12px; min-height: 36px; border-radius: 4px; box-shadow: none; font-weight: 500; font-size: 13px; color: #49352d; background: transparent; }
+.map-tools #list-btn:hover, .map-tools #heat-btn:hover, .map-tools #areas-btn:hover { background: #f6eee8; }
+.map-tools #heat-btn.active, .map-tools #areas-btn.active { color: #93432d; background: #fff0e9; box-shadow: inset 0 0 0 1px #e7c5b7; }
+.map-page #add-btn { width: 48px; height: 48px; min-height: 48px; padding: 0; right: 20px; bottom: 28px; background: var(--accent-color); box-shadow: 0 3px 10px #33292333; }
+.map-page .filter-toggle.active { color: #93432d; background: #fff0e9; border-color: #ad5035; }
+.map-page .modal-content { width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow-y: auto; }
+.map-page #offline-notice { top: 68px; max-width: calc(100vw - 32px); }
+@media (max-width: 640px) {
+    .cat-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+    .map-tools { top: 12px; right: 12px; gap: 0; }
+    .map-tools #list-btn, .map-tools #heat-btn, .map-tools #areas-btn { padding: 0 8px; }
+    .stats-page .bar-name { flex-basis: 100px; }
+}
+
+/* The shell already owns the primary creation action. Standalone pages keep theirs. */
+.map-page.embedded-page #add-btn, .records-page.embedded-page .toolbar > button { display: none; }
