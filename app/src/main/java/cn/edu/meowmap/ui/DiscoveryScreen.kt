@@ -240,7 +240,7 @@ fun DiscoveryScreen(state: MeowState, vm: MeowViewModel, onRecord: (String) -> U
             }
         } else CampusMap(mapRecords, Modifier.weight(1f).fillMaxWidth(), focus = focus, selection = point,
             onRecord = onRecord, areas = areas, showAreas = boundaries, clustered = cluster && track == null && point == null,
-            heatmap = heat, track = track?.rows.orEmpty(), recordAvatars = recordAvatars, onCampus = { campusSummary = it })
+            heatmap = heat, track = track?.rows.orEmpty(), recordAvatars = recordAvatars, loadAvatar = vm::catAvatar, onCampus = { campusSummary = it })
     }
     campusSummary?.let { area ->
         val sightings = state.allRecords.filter { area.contains(it.record.latitude, it.record.longitude) }

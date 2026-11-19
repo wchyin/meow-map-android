@@ -56,6 +56,15 @@ class OriginalApiTest {
             assertArrayEquals(byteArrayOf(1,2,3), request.bytes)
         }
     }
+    @Test fun publicReadCanOmitExpiredCredential() = runBlocking {
+        ServerSocket(0).use { server ->
+            val captured = serve(server, 200)
+            OriginalApi("http://127.0.0.1:${server.localPort}") { "expired-token" }
+                .json("/social/alice/cat/interactions", authenticated = false)
+            assertNull(captured.get().headers["authorization"])
+        }
+    }
+
     @Test fun authorizationFailureIsNotAnEmptyList() = runBlocking {
         ServerSocket(0).use { server ->
             serve(server, 401)

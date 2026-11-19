@@ -4,7 +4,13 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.Canvas
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.graphics.Path
 import android.location.Location
 import android.location.LocationListener
@@ -80,10 +86,12 @@ fun CampusMap(
     showAreas: Boolean = true,
     track: List<RecordSummary> = emptyList(),
     recordAvatars: Map<String, String?> = emptyMap(),
+    loadAvatar: (suspend (String) -> ByteArray?)? = null,
     onCampus: ((CampusArea) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
+    val customAvatars = remember { mutableMapOf<String, Bitmap>() }
     val currentPick by rememberUpdatedState(onPick)
     val currentRecord by rememberUpdatedState(onRecord)
     val currentAreas by rememberUpdatedState(areas)
@@ -181,13 +189,42 @@ fun CampusMap(
             }
         }
     }, modifier = modifier)
-    LaunchedEffect(style, records, recordAvatars) {
+    LaunchedEffect(style, records, recordAvatars, loadAvatar) {
+        val activeStyle = style ?: return@LaunchedEffect
+        val paths = recordAvatars.values.filterNotNull().filter { !it.startsWith("builtin:") }.distinct()
+        for (path in paths) {
+            if (path !in customAvatars) {
+                val bitmap = withContext(Dispatchers.IO) {
+                    val original = if (path.startsWith("http")) {
+                        loadAvatar?.invoke(path)?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                    } else BitmapFactory.decodeFile(path)
+                    original?.let {
+                        val result = createBitmap(markerSize, markerSize)
+                        result.density = (density * DisplayMetrics.DENSITY_DEFAULT).roundToInt()
+                        val canvas = Canvas(result)
+                        val radius = markerSize / 2f
+                        canvas.clipPath(Path().apply { addCircle(radius, radius, radius, Path.Direction.CW) })
+                        val side = minOf(it.width, it.height)
+                        val x = (it.width - side) / 2
+                        val y = (it.height - side) / 2
+                        canvas.drawBitmap(it, Rect(x, y, x + side, y + side), Rect(0, 0, markerSize, markerSize),
+                            Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+                        it.recycle()
+                        result
+                    }
+                }
+                if (bitmap != null) customAvatars[path] = bitmap
+            }
+        }
         val features = records.map { row ->
             val record = row.record
             val avatar = avatarPreset(record.catId ?: record.id.substringAfter('~'), recordAvatars[record.id])
             Feature.fromGeometry(MapPoint(record.latitude, record.longitude).toAmapGeometry()).apply {
                 addStringProperty("id", record.id)
-                addStringProperty("avatar", avatar.id)
+                val custom = recordAvatars[record.id]?.let { customAvatars[it] }
+                val imageId = if (custom != null) "custom:" + record.id else avatar.id
+                if (custom != null) activeStyle.addImage(imageId, custom)
+                addStringProperty("avatar", imageId)
             }
         }
         style?.getSourceAs<GeoJsonSource>("raw-cats")?.setGeoJson(FeatureCollection.fromFeatures(features))

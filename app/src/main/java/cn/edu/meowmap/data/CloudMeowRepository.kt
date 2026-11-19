@@ -80,6 +80,9 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
         catRows.value = rows("cats").map { CatProfile(it.text("id"), it.text("name"), it.text("species"), it.text("features"), it.text("notes"), it.text("avatar").takeIf(String::isNotBlank)?.let { avatar ->
             if (avatar.startsWith("/uploads/")) imageUrl(avatar) else avatar
         }) }
+        val mapAvatars = rows("map_records").associate {
+            "${it.text("user_id")}~${it.text("id")}" to it.text("cat_avatar")
+        }
         publicRows.value = rows("observations").map { row ->
             val kind = row.text("kind")
             val id = "${row.text("user_id")}~${row.text("id")}"
@@ -91,7 +94,9 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
                 row.text("is_demo") in setOf("true", "1") || row.text("demo_batch").isNotBlank(),
                 row.text("university").ifBlank { row.text("area").substringBefore('·') },
                 catName = row.text("cat_name"),
-                catAvatar = row.text("cat_avatar").takeIf { it.startsWith("builtin:") },
+                catAvatar = row.text("cat_avatar").ifBlank {
+                    mapAvatars[id].orEmpty()
+                }.takeIf { it.startsWith("builtin:") },
                 description = row.text("desc").ifBlank { row.text("notes").ifBlank { row.text("gender") } },
                 count = row.text("count").toIntOrNull()?.coerceAtLeast(1) ?: 1,
                 hasSpecificLocation = row.text("location").isNotBlank() || row.text("title").isNotBlank())
@@ -243,7 +248,20 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
         return "/social/${parts[0]}/${parts[1]}"
     }
     override suspend fun loadInteractions(recordId: String) = withContext(Dispatchers.IO) { mutex.withLock {
-        val response = api.json(social(recordId) + "/interactions").asJsonObject
+        val route = social(recordId) + "/interactions"
+        val response = try {
+            api.json(route).asJsonObject
+        } catch (error: ApiFailure) {
+            if (error.status != 401) throw error
+            // Public details remain readable when another device has revoked this session.
+            clearSession()
+            raw.remove("records")
+            raw.remove("cats")
+            render()
+            persist()
+            message.value = "账号已退出，请登录后发布或互动"
+            api.json(route, authenticated = false).asJsonObject
+        }
         val comments = response.getAsJsonArray("comments").map { it.asJsonObject }.map { row ->
             CommentSummary(RecordComment(row.text("id"), recordId, row.text("user_id"), row.text("content"), originalTime(row.text("created_at"))),
                 row.getAsJsonObject("profiles")?.text("username") ?: "猫友")

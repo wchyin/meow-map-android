@@ -31,8 +31,7 @@ class ScreenshotTest {
         compose.onNodeWithText("查看详情").performClick()
         capture("03-detail")
         compose.onNodeWithContentDescription("返回").performClick()
-        compose.onNodeWithText("更多").performClick()
-        compose.onNodeWithText("个人档案").performClick()
+        compose.onNodeWithTag("nav_profile").performClick()
         capture("04-profile")
     }
 }

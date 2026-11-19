@@ -72,7 +72,15 @@
 <style>
 [hidden] { display: none !important; }
 .stats-page, .stats-page * { box-sizing: border-box; }
-.stats-page .container { min-width: 0; }
+html, body.stats-page { width: 100%; max-width: 100%; overflow-x: hidden; }
+body.stats-page { padding: 0; }
+.stats-page .container { width: 100%; max-width: 100%; min-width: 0; }
+.stats-page .stats-charts, .stats-page .stats-section, .stats-page .stats-grid,
+.stats-page .analytics-controls, .stats-page .donut-layout, .stats-page .chart-legend { min-width: 0; max-width: 100%; }
+.stats-page .stats-section > div { min-width: 0; max-width: 100%; }
+.stats-page .chart-legend li > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }
+.stats-page .heatmap-scroll { width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.stats-page .analytics-status { overflow-wrap: anywhere; }
 .visualization-picker { display: grid; gap: 8px; margin-bottom: 20px; color: #304b55; font-size: 14px; font-weight: 600; }
 .visualization-picker select { width: 100%; max-width: 420px; min-height: 44px; background: white; border: 1px solid #dce7eb; border-radius: 8px; padding: 10px; color: #304b55; }
 @media(max-width:600px) {

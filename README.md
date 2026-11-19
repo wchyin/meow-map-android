@@ -2,7 +2,7 @@
 
 校园猫地图记录与交流应用。用 Android Studio 打开本目录即可开始开发。
 
-当前开发版本：**0.7.1**，分支 `feature/original-meow-migration`。
+当前开发版本：**0.7.2**，分支 `feature/original-meow-migration`。
 
 0.7.0 复用桌面原版统计图表和计算函数，补齐十张可视化。统计页的「展示内容」可按主题或单张图表筛选，保留统计范围和示例记录开关。
 

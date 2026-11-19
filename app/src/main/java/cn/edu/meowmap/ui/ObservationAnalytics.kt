@@ -32,6 +32,9 @@ fun ObservationAnalytics(state: MeowState) {
                 settings.builtInZoomControls = false
                 settings.displayZoomControls = false
                 settings.textZoom = 100
+                settings.useWideViewPort = true
+                settings.loadWithOverviewMode = false
+                isHorizontalScrollBarEnabled = false
                 settings.allowFileAccess = false
                 settings.allowContentAccess = false
                 settings.blockNetworkLoads = true

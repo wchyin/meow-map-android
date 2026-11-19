@@ -20,14 +20,14 @@ class ApiFailure(val status: Int, message: String) : Exception(message)
 
 /** Matches server/index.js, rather than the older proposed /api/v1 contract. */
 class OriginalApi(private val endpoint: String, private val token: () -> String?) {
-    suspend fun request(route: String, method: String = "GET", body: ByteArray? = null, binary: Boolean = false): ByteArray = withContext(Dispatchers.IO) {
+    suspend fun request(route: String, method: String = "GET", body: ByteArray? = null, binary: Boolean = false, authenticated: Boolean = true): ByteArray = withContext(Dispatchers.IO) {
         require(route.startsWith('/') && !route.startsWith("//"))
         val connection = URL(endpoint.trimEnd('/') + route).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method
             connection.connectTimeout = 15_000; connection.readTimeout = if (route == "/cat-assistant") 25_000 else 20_000
             connection.instanceFollowRedirects = false
-            token()?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
+            if (authenticated) token()?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
             if (body != null) {
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", if (binary) "application/octet-stream" else "application/json")
@@ -41,8 +41,8 @@ class OriginalApi(private val endpoint: String, private val token: () -> String?
             bytes
         } finally { connection.disconnect() }
     }
-    suspend fun json(route: String, method: String = "GET", body: JsonElement? = null): JsonElement =
-        JsonParser.parseString(request(route, method, body?.toString()?.toByteArray()).toString(Charsets.UTF_8))
+    suspend fun json(route: String, method: String = "GET", body: JsonElement? = null, authenticated: Boolean = true): JsonElement =
+        JsonParser.parseString(request(route, method, body?.toString()?.toByteArray(), authenticated = authenticated).toString(Charsets.UTF_8))
 }
 
 /** Only encrypted credentials are persisted; account data is stored separately. */

@@ -27,8 +27,7 @@ class AppFlowTest {
         assumeTrue("Uses local fixture accounts", BuildConfig.MEOW_LOCAL_MODE)
         val title = "校园猫${System.nanoTime()}"
         compose.waitUntil(30_000) { compose.onAllNodesWithText("发现地图").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("更多").performClick()
-        compose.onNodeWithText("个人档案").performClick()
+        compose.onNodeWithTag("nav_profile").performClick()
         if (compose.onAllNodesWithText("退出登录").fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithText("退出登录").performClick()
         compose.onNodeWithTag("profile_login").performClick()
         compose.onNodeWithTag("auth_submit").performClick()

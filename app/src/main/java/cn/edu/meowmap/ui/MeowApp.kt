@@ -54,10 +54,9 @@ fun MeowApp(vm: MeowViewModel) {
     var mapRequest by rememberSaveable { mutableLongStateOf(0L) }
     var more by remember { mutableStateOf(false) }
     val screenState = rememberSaveableStateHolder()
-    val primaryPages = if (BuildConfig.MEOW_LOCAL_MODE) listOf(Page.MAP, Page.MINE, Page.CATS)
-        else listOf(Page.MAP, Page.PUBLIC, Page.MINE, Page.CATS)
-    val morePages = if (BuildConfig.MEOW_LOCAL_MODE) listOf(Page.STATS, Page.PROFILE)
-        else listOf(Page.STATS, Page.ASSISTANT, Page.PROFILE)
+    val primaryPages = listOf(Page.MAP, Page.MINE, Page.CATS)
+    val morePages = if (BuildConfig.MEOW_LOCAL_MODE) listOf(Page.STATS)
+        else listOf(Page.PUBLIC, Page.STATS, Page.ASSISTANT)
     fun locateRecord(id: String) {
         mapRecordId = id
         mapRequest++
@@ -89,6 +88,9 @@ fun MeowApp(vm: MeowViewModel) {
                         }
                         NavigationBarItem(selected = page in morePages, onClick = { more = true },
                             icon = { Icon(Icons.Outlined.MoreHoriz, null) }, label = { Text("更多") })
+                        NavigationBarItem(selected = page == Page.PROFILE, onClick = { page = Page.PROFILE },
+                            modifier = Modifier.testTag("nav_profile"),
+                            icon = { Icon(Page.PROFILE.icon, null) }, label = { Text("个人档案", maxLines = 1) })
                     }
                     DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
                         morePages.forEach { destination ->
@@ -107,7 +109,7 @@ fun MeowApp(vm: MeowViewModel) {
                     } },
                 ) {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                        (primaryPages + morePages).forEach { destination ->
+                        (primaryPages + morePages + Page.PROFILE).forEach { destination ->
                             NavigationRailItem(selected = page == destination, onClick = { page = destination }, modifier = Modifier.testTag("nav_" + destination.name.lowercase()),
                                 icon = { Icon(destination.icon, null) },
                                 label = { Text(if (destination == Page.MINE) "观察记录" else destination.label, maxLines = 1) })
