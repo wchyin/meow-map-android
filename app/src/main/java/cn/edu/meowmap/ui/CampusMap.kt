@@ -131,6 +131,8 @@ fun CampusMap(
             getMapAsync { m ->
                 map = m
                 m.uiSettings.isRotateGesturesEnabled = false
+                // Amap's desktop raster endpoint returns blank tiles above level 18.
+                m.setMaxZoomPreference(18.0)
                 m.cameraPosition = CameraPosition.Builder()
                     .target((selection ?: focus ?: CampusCenter).toAmapLatLng())
                     .zoom(15.5).build()

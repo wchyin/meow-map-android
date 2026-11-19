@@ -28,6 +28,7 @@ class ScreenshotTest {
         capture("02-records")
         compose.onNodeWithTag("record_list").performScrollToNode(hasText("图书馆旁的橘色身影"))
         compose.onNodeWithText("图书馆旁的橘色身影").performClick()
+        compose.onNodeWithText("查看详情").performClick()
         capture("03-detail")
         compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithText("更多").performClick()

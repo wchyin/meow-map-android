@@ -99,7 +99,7 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
         observationRows.value = rows("records").map { row ->
             val time = originalTime(row.text("time"))
             Observation(row.text("id"), currentUser.value?.id ?: "", time, row.text("location"),
-                row.text("count", "1").toIntOrNull() ?: 1, row.text("species"), row.text("appearance").ifBlank { row.text("notes") },
+                row.text("count", "1").toIntOrNull() ?: 1, row.text("species"), row.text("gender").ifBlank { row.text("appearance").ifBlank { row.text("notes") } },
                 originalTime(row.text("created_at")), originalTime(row.text("created_at")), row.text("cat_id").ifBlank { null })
         }
     }
@@ -316,7 +316,7 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
         val body = rows("records").find { it.text("id") == input.id }?.deepCopy() ?: JsonObject()
         body.addProperty("id", input.id ?: UUID.randomUUID().toString()); body.addProperty("time", Instant.ofEpochMilli(input.observedAt).toString())
         body.addProperty("location", input.place.trim()); body.addProperty("count", input.count); body.addProperty("species", input.catName)
-        body.addProperty("appearance", input.appearance); body.add("cat_id", input.catId?.let(::JsonPrimitive) ?: JsonNull.INSTANCE)
+        body.addProperty("gender", input.appearance); body.addProperty("appearance", input.appearance); body.add("cat_id", input.catId?.let(::JsonPrimitive) ?: JsonNull.INSTANCE)
         write("/records" + if (input.id == null) "" else "/${remoteId(input.id)}", if (input.id == null) "POST" else "PUT", body); readSync()
     } }
     override suspend fun deleteObservation(id: String) = withContext(Dispatchers.IO) { mutex.withLock { write("/records/${remoteId(id)}", "DELETE"); readSync() } }

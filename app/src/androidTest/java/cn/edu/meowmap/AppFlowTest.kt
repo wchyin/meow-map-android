@@ -76,6 +76,7 @@ class AppFlowTest {
         compose.onNodeWithTag("toggle_map_list").performClick()
         compose.onNodeWithTag("record_list").performScrollToNode(hasText(title))
         compose.onNodeWithText(title).performClick()
+        compose.onNodeWithText("查看详情").performClick()
         compose.onNodeWithTag("comment_input").performTextInput("一条测试评论")
         compose.onNodeWithTag("comment_send").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithText("一条测试评论").fetchSemanticsNodes().isNotEmpty() }

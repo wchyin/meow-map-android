@@ -44,6 +44,7 @@ fun DiscoveryScreen(state: MeowState, vm: MeowViewModel, onRecord: (String) -> U
     var trackMenu by remember { mutableStateOf(false) }
     var trackKey by rememberSaveable { mutableStateOf<String?>(null) }
     var consumedRequest by rememberSaveable { mutableLongStateOf(0L) }
+    var listFocusRequest by rememberSaveable { mutableLongStateOf(0L) }
     var highlightId by rememberSaveable { mutableStateOf<String?>(null) }
     var heat by rememberSaveable { mutableStateOf(false) }
     var nearby by remember { mutableStateOf<MapPoint?>(null) }
@@ -99,7 +100,7 @@ fun DiscoveryScreen(state: MeowState, vm: MeowViewModel, onRecord: (String) -> U
         } else if (targetId == null) highlightId = null
     }
     val highlighted = state.allRecords.firstOrNull { it.record.id == highlightId }
-    val point = highlighted?.record?.let { MapPoint(it.latitude, it.longitude, targetRequest) }
+    val point = highlighted?.record?.let { MapPoint(it.latitude, it.longitude, targetRequest + listFocusRequest) }
     val focusedArea = areas.find { it.label == campus }
     val focus = point ?: nearby ?: focusedArea?.rings?.firstOrNull()?.firstOrNull()?.let { MapPoint(it.first, it.second) }
     val mapRecords = track?.rows ?: if (highlighted != null && records.none { it.record.id == highlightId }) records + highlighted else records
@@ -228,7 +229,14 @@ fun DiscoveryScreen(state: MeowState, vm: MeowViewModel, onRecord: (String) -> U
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
             if (records.isEmpty()) item { EmptyState("没有找到记录", "试试其他关键词、校园或日期") }
             items(records, key = { it.record.id }) { row ->
-                MapObservationRow(row, recordAvatars[row.record.id], observationsByMapId[row.record.id]?.time) { onRecord(row.record.id) }
+                MapObservationRow(row, recordAvatars[row.record.id], observationsByMapId[row.record.id]?.time) {
+                    highlightId = row.record.id
+                    listFocusRequest++
+                    list = false
+                    heat = false
+                    trackOpen = false
+                    trackKey = null
+                }
             }
         } else CampusMap(mapRecords, Modifier.weight(1f).fillMaxWidth(), focus = focus, selection = point,
             onRecord = onRecord, areas = areas, showAreas = boundaries, clustered = cluster && track == null && point == null,
