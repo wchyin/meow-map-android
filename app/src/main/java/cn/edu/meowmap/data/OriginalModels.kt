@@ -73,3 +73,10 @@ internal fun cloudRecord(row: JsonObject): CatRecord {
     return CatRecord("$owner~$id", owner, row.text("title"), row.text("desc"), row.text("area").ifBlank { "校园观察" },
         point.first, point.second, originalTime(row.text("created_at")), originalTime(row.text("created_at")), demo = row.text("is_demo") in setOf("true", "1"), catId = row.text("cat_id").ifBlank { null })
 }
+
+internal fun publicAvatarUrl(value: String, endpoint: String): String? {
+    if (value.startsWith("builtin:")) return value
+    val root = endpoint.trimEnd('/')
+    val route = value.removePrefix(root)
+    return if (route.matches(Regex("/uploads/[a-f0-9-]{36}"))) root + route else null
+}

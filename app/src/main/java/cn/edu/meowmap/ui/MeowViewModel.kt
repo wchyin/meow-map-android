@@ -152,6 +152,26 @@ class MeowViewModel(private val repository: MeowRepository) : ViewModel() {
     fun saveDraft(input: RecordInput, selected: Boolean, done: () -> Unit = {}) = action("草稿已保存，可在下次打开时继续", done) { repository.saveDraft(input, selected) }
     fun discardDraft(recordId: String?, paths: List<String>, done: () -> Unit) = action(done = done) { repository.discardDraft(recordId, paths) }
     fun discardPhotos(paths: List<String>) = action { repository.discardPhotos(paths) }
+    fun cropAvatar(path: String, zoom: Float, x: Float, y: Float, done: (String) -> Unit) = action {
+        val output = withContext(Dispatchers.IO) {
+            val source = requireNotNull(android.graphics.BitmapFactory.decodeFile(path)) { "头像读取失败，请重新选择" }
+            val rect = avatarCropRect(source.width, source.height, zoom, x, y)
+            val cropped = android.graphics.Bitmap.createBitmap(source, rect.left, rect.top, rect.side, rect.side)
+            val scaled = android.graphics.Bitmap.createScaledBitmap(cropped, 512, 512, true)
+            val file = java.io.File(java.io.File(path).parentFile, "${java.util.UUID.randomUUID()}.jpg")
+            try {
+                file.outputStream().use { check(scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it)) }
+                file.path
+            } catch (e: Exception) { file.delete(); throw e }
+            finally {
+                if (scaled !== cropped) scaled.recycle()
+                if (cropped !== source) cropped.recycle()
+                source.recycle()
+            }
+        }
+        repository.discardPhotos(listOf(path))
+        done(output)
+    }
     fun importPhotos(uris: List<Uri>, finished: () -> Unit = {}, done: (List<String>) -> Unit) = action {
         val paths = mutableListOf<String>()
         try {

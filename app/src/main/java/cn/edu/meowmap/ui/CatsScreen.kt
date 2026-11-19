@@ -146,10 +146,14 @@ fun CatsScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit, onRecor
         var notes by rememberSaveable { mutableStateOf(cat.notes) }
         var avatar by rememberSaveable { mutableStateOf(cat.avatar) }
         var avatarMenu by remember { mutableStateOf(false) }
+        var cropPath by rememberSaveable { mutableStateOf<String?>(null) }
         val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-            uri?.let { vm.importPhotos(listOf(it)) { paths -> avatar = paths.singleOrNull() } }
+            uri?.let { vm.importPhotos(listOf(it)) { paths -> cropPath = paths.singleOrNull() } }
         }
-        AlertDialog(onDismissRequest = { if (!state.busy) editing = null }, title = { Text(if (cat.id.isBlank()) "新建猫咪档案" else "编辑猫咪档案") }, text = {
+        cropPath?.let { path -> AvatarCropDialog(path, state.busy,
+            onCancel = { cropPath = null; vm.discardPhotos(listOf(path)) },
+            onConfirm = { zoom, x, y -> vm.cropAvatar(path, zoom, x, y) { avatar = it; cropPath = null } }) }
+        if (cropPath == null) AlertDialog(onDismissRequest = { if (!state.busy) editing = null }, title = { Text(if (cat.id.isBlank()) "新建猫咪档案" else "编辑猫咪档案") }, text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CatAvatar(avatar, name, vm)

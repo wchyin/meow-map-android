@@ -96,7 +96,7 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
                 catName = row.text("cat_name").ifBlank { mapMetadata[id]?.text("cat_name").orEmpty() },
                 catAvatar = row.text("cat_avatar").ifBlank {
                     mapMetadata[id]?.text("cat_avatar").orEmpty()
-                }.takeIf { it.startsWith("builtin:") },
+                }.let { publicAvatarUrl(it, endpointRoot) },
                 description = row.text("desc").ifBlank { row.text("notes").ifBlank { row.text("gender") } },
                 count = row.text("count").toIntOrNull()?.coerceAtLeast(1) ?: 1,
                 hasSpecificLocation = row.text("location").isNotBlank() || row.text("title").isNotBlank())
@@ -227,7 +227,7 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
         applyProfile(write("/profile", "PUT", body).asJsonObject)
     } }
     override suspend fun catAvatar(path: String): ByteArray? = mutex.withLock {
-        if (currentUser.value == null || !path.startsWith("$endpointRoot/uploads/")) return@withLock null
+        if (!path.startsWith("$endpointRoot/uploads/")) return@withLock null
         val route = path.removePrefix(endpointRoot)
         imageUrl(route)
         api.request(route)
