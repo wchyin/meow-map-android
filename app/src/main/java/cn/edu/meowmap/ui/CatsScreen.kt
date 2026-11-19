@@ -25,8 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cn.edu.meowmap.data.*
 
-private data class AvatarPreset(val id: String, val label: String, val resource: Int)
-private val avatarPresets = listOf(
+internal data class AvatarPreset(val id: String, val label: String, val resource: Int)
+internal val avatarPresets = listOf(
     AvatarPreset("builtin:cat", "浅杏", R.drawable.cat_avatar_apricot),
     AvatarPreset("builtin:cat2", "雾蓝", R.drawable.cat_avatar_blue),
     AvatarPreset("builtin:mint", "薄荷", R.drawable.cat_avatar_mint),
@@ -34,6 +34,10 @@ private val avatarPresets = listOf(
     AvatarPreset("builtin:sand", "暖沙", R.drawable.cat_avatar_sand),
     AvatarPreset("builtin:rose", "浅玫", R.drawable.cat_avatar_rose),
 )
+
+internal fun avatarPreset(key: String, preferred: String? = null): AvatarPreset =
+    avatarPresets.find { it.id == preferred }
+        ?: avatarPresets[Integer.remainderUnsigned(key.hashCode(), avatarPresets.size)]
 
 @Composable
 private fun CatAvatar(path: String?, name: String, vm: MeowViewModel) {

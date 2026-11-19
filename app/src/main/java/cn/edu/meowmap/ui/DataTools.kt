@@ -8,12 +8,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import cn.edu.meowmap.data.CampusAreas
 
 @Composable
 fun DataTools(state: MeowState, vm: MeowViewModel) {
     val context = LocalContext.current
-    val campuses = remember { CampusAreas.load(context) }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri -> uri?.let { vm.exportBackup(context, it) } }
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { vm.importBackup(context, it) } }
     var confirmImport by remember { mutableStateOf(false) }
@@ -26,5 +24,4 @@ fun DataTools(state: MeowState, vm: MeowViewModel) {
         text = { Text("支持便携 ZIP，以及不含电脑照片路径的原版 JSON。重复 ID 跳过，中断可重试。导入的地图观察及照片公开可见。") },
         confirmButton = { TextButton(onClick = { confirmImport = false; import.launch(arrayOf("application/zip", "application/json", "application/octet-stream")) }) { Text("选择备份") } },
         dismissButton = { TextButton(onClick = { confirmImport = false }) { Text("取消") } })
-    ObservationAnalytics(state, campuses)
 }

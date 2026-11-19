@@ -15,7 +15,7 @@ import cn.edu.meowmap.data.AssistantAnswer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AssistantScreen(state: MeowState, vm: MeowViewModel, onBack: () -> Unit, onRecord: (String) -> Unit) {
+fun AssistantScreen(state: MeowState, vm: MeowViewModel, onBack: () -> Unit, onLogin: () -> Unit, onRecord: (String) -> Unit) {
     var question by rememberSaveable { mutableStateOf("") }
     var answer by remember { mutableStateOf<AssistantAnswer?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -26,7 +26,8 @@ fun AssistantScreen(state: MeowState, vm: MeowViewModel, onBack: () -> Unit, onR
         })
         Column(Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (state.user == null) {
-                EmptyState("请重新登录", "登录后可以查询公开观察")
+                EmptyState("登录后使用寻猫小助手", "从公开观察里查找猫咪、地点和目击时间")
+                Button(onClick = onLogin) { Text("登录 / 注册") }
             } else {
                 OutlinedTextField(question, { question = it.take(300) }, Modifier.fillMaxWidth(),
                     label = { Text("想找哪只猫？") }, placeholder = { Text("例如：大学城校区哪里见过橘猫？") },
@@ -48,7 +49,7 @@ fun AssistantScreen(state: MeowState, vm: MeowViewModel, onBack: () -> Unit, onR
                                 Text("[${source.reference}] ${source.label}", style = MaterialTheme.typography.titleSmall)
                                 if (source.location.isNotBlank()) Text(source.location, color = Muted)
                                 val mapId = source.mapId
-                                if (mapId != null && mapId in mapIds) TextButton(onClick = { onRecord(mapId) }) { Text("查看地图打卡") }
+                                if (mapId != null && mapId in mapIds) TextButton(onClick = { onRecord(mapId) }) { Text("在地图定位") }
                             }
                             HorizontalDivider()
                         }

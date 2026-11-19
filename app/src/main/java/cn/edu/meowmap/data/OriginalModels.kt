@@ -8,7 +8,23 @@ import kotlin.math.*
 
 data class CatProfile(val id: String = "", val name: String = "", val species: String = "", val features: String = "", val notes: String = "", val avatar: String? = null)
 
-data class PublicObservation(val key: String, val kind: String, val mapId: String?, val label: String, val place: String, val species: String, val author: String, val time: Long, val demo: Boolean, val university: String)
+data class PublicObservation(
+    val key: String,
+    val kind: String,
+    val mapId: String?,
+    val label: String,
+    val place: String,
+    val species: String,
+    val author: String,
+    val time: Long,
+    val demo: Boolean,
+    val university: String,
+    val catName: String = "",
+    val catAvatar: String? = null,
+    val description: String = "",
+    val count: Int = 1,
+    val hasSpecificLocation: Boolean = place.isNotBlank(),
+)
 data class AssistantSource(val reference: Int, val mapId: String?, val label: String, val location: String)
 data class AssistantAnswer(val text: String, val sources: List<AssistantSource>)
 
@@ -19,7 +35,7 @@ internal fun originalTime(value: String): Long = runCatching { Instant.parse(val
     runCatching { LocalDateTime.parse(value).atZone(ZoneId.of("Asia/Shanghai")).toInstant().toEpochMilli() }.getOrDefault(0)
 }
 
-/** The original desktop stores Amap/GCJ-02 points. MapLibre and GPS use WGS84. */
+/** The desktop protocol and Amap tiles use GCJ-02. Android storage and GPS use WGS84. */
 object Coordinates {
     fun toGcj(lat: Double, lng: Double): Pair<Double, Double> {
         if (lng !in 72.004..137.8347 || lat !in 0.8293..55.8271) return lat to lng

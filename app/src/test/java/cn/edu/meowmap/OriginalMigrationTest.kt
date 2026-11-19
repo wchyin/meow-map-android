@@ -1,6 +1,10 @@
 package cn.edu.meowmap
 
 import cn.edu.meowmap.data.*
+import cn.edu.meowmap.ui.MapPoint
+import cn.edu.meowmap.ui.toAmapGeometry
+import cn.edu.meowmap.ui.toAmapLatLng
+import cn.edu.meowmap.ui.toWgsMapPoint
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import org.junit.Assert.*
@@ -21,6 +25,29 @@ class OriginalMigrationTest {
         assertEquals(113.4033, gps.second, 0.0000001)
         assertEquals(51.5 to -0.1, Coordinates.toGcj(51.5, -0.1))
     }
+    @Test fun nativeMapUsesDesktopCoordinatesAndConvertsClicksBackToWgs84() {
+        val originalLat = 23.0481730922355
+        val originalLng = 113.40881938117761
+        val payload = JsonObject().apply {
+            addProperty("id", "campus")
+            addProperty("user_id", "alice")
+            addProperty("lat", originalLat)
+            addProperty("lng", originalLng)
+        }
+        val record = cloudRecord(payload)
+        val position = MapPoint(record.latitude, record.longitude)
+        val camera = position.toAmapLatLng()
+        val overlay = position.toAmapGeometry()
+        val picked = camera.toWgsMapPoint()
+
+        assertEquals(originalLat, camera.latitude, 1e-8)
+        assertEquals(originalLng, camera.longitude, 1e-8)
+        assertEquals(originalLat, overlay.latitude(), 1e-8)
+        assertEquals(originalLng, overlay.longitude(), 1e-8)
+        assertEquals(23.0507, picked.latitude, 1e-8)
+        assertEquals(113.4033, picked.longitude, 1e-8)
+    }
+
     @Test fun publicIdentityIncludesAuthorAndKeepsCatAssociation() {
         val first = JsonParser.parseString("""{"id":"same","user_id":"alice","lat":23.05,"lng":113.4,"cat_id":"cat-1","created_at":"2026-11-03T00:00:00.000Z"}""").asJsonObject
         val second = first.deepCopy().apply { addProperty("user_id", "bob") }

@@ -1,8 +1,14 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
+}
+
+val localSettings = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use { load(it) }
 }
 
 android {
@@ -12,11 +18,24 @@ android {
         applicationId = "cn.edu.meowmap"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.5.0"
+        versionCode = 7
+        versionName = "0.6.1"
         buildConfigField("String", "MEOW_API_URL", "\"http://8.148.216.205/meow-api\"")
         buildConfigField("boolean", "MEOW_LOCAL_MODE", providers.gradleProperty("meowLocal").orElse("false").get())
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        debug {
+            for (field in listOf("EMAIL", "PASSWORD")) {
+                val value = localSettings.getProperty("meow.demo." + field.lowercase(), "")
+                val literal = value.replace("\\", "\\\\").replace("\"", "\\\"")
+                buildConfigField("String", "MEOW_DEFAULT_" + field, "\"" + literal + "\"")
+            }
+        }
+        release {
+            buildConfigField("String", "MEOW_DEFAULT_EMAIL", "\"\"")
+            buildConfigField("String", "MEOW_DEFAULT_PASSWORD", "\"\"")
+        }
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {

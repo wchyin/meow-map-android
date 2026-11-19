@@ -4,24 +4,31 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Canvas
+import android.graphics.Path
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Handler
 import android.os.Looper
+import android.util.DisplayMetrics
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.createBitmap
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import cn.edu.meowmap.data.RecordSummary
 import cn.edu.meowmap.data.CampusArea
+import cn.edu.meowmap.data.Coordinates
+import cn.edu.meowmap.data.RecordSummary
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
@@ -31,14 +38,33 @@ import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.style.sources.GeoJsonOptions
 import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.HeatmapLayer
+import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.expressions.Expression.*
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 import org.maplibre.geojson.Polygon
+import kotlin.math.roundToInt
 
+/** Positions shared by the editor, location services, and repositories are WGS84. */
 data class MapPoint(val latitude: Double, val longitude: Double, val requestId: Long = 0)
-val CampusCenter = MapPoint(23.0507, 113.4033)
+
+// WGS84 equivalent of the initial SCUT University Town view in the desktop app.
+val CampusCenter = MapPoint(23.05031752, 113.40189392)
+
+internal fun MapPoint.toAmapLatLng(): LatLng {
+    val (lat, lng) = Coordinates.toGcj(latitude, longitude)
+    return LatLng(lat, lng)
+}
+
+internal fun MapPoint.toAmapGeometry(): Point = toAmapLatLng().let { Point.fromLngLat(it.longitude, it.latitude) }
+
+internal fun LatLng.toWgsMapPoint(): MapPoint {
+    val (lat, lng) = Coordinates.toWgs(latitude, longitude)
+    return MapPoint(lat, lng)
+}
 
 @Composable
 fun CampusMap(
@@ -50,6 +76,10 @@ fun CampusMap(
     onRecord: (String) -> Unit = {},
     areas: List<CampusArea> = emptyList(),
     heatmap: Boolean = false,
+    clustered: Boolean = true,
+    showAreas: Boolean = true,
+    track: List<RecordSummary> = emptyList(),
+    recordAvatars: Map<String, String?> = emptyMap(),
     onCampus: ((CampusArea) -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -57,10 +87,26 @@ fun CampusMap(
     val currentPick by rememberUpdatedState(onPick)
     val currentRecord by rememberUpdatedState(onRecord)
     val currentAreas by rememberUpdatedState(areas)
-    val campusClick by rememberUpdatedState(onCampus)
+    val campusClick by rememberUpdatedState(onCampus.takeIf { showAreas })
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
     val view = remember { MapView(context).apply { onCreate(null) } }
+    val density = LocalDensity.current.density
+    val markerSize = (24 * density).roundToInt().coerceAtLeast(1)
+    val avatars = remember(context, markerSize, density) {
+        avatarPresets.associate { preset ->
+            val image = createBitmap(markerSize, markerSize)
+            image.density = (density * DisplayMetrics.DENSITY_DEFAULT).roundToInt()
+            val canvas = Canvas(image)
+            val radius = markerSize / 2f
+            canvas.clipPath(Path().apply { addCircle(radius, radius, radius, Path.Direction.CW) })
+            ContextCompat.getDrawable(context, preset.resource)?.apply {
+                setBounds(0, 0, markerSize, markerSize)
+                draw(canvas)
+            }
+            preset.id to image
+        }
+    }
 
     DisposableEffect(owner, view) {
         val observer = LifecycleEventObserver { _, event ->
@@ -85,29 +131,44 @@ fun CampusMap(
             getMapAsync { m ->
                 map = m
                 m.uiSettings.isRotateGesturesEnabled = false
-                m.cameraPosition = CameraPosition.Builder().target(LatLng((selection ?: focus ?: CampusCenter).latitude, (selection ?: focus ?: CampusCenter).longitude)).zoom(15.5).build()
+                m.cameraPosition = CameraPosition.Builder()
+                    .target((selection ?: focus ?: CampusCenter).toAmapLatLng())
+                    .zoom(15.5).build()
                 m.setStyle(Style.Builder().fromUri("asset://campus-map.json")) { s ->
                     val boundaries = currentAreas.flatMap { area -> area.rings.map { ring ->
-                        Feature.fromGeometry(Polygon.fromLngLats(listOf(ring.map { Point.fromLngLat(it.second, it.first) })))
+                        val points = ring.map { (lat, lng) -> MapPoint(lat, lng).toAmapGeometry() }
+                        Feature.fromGeometry(Polygon.fromLngLats(listOf(points)))
                     } }
                     s.addSource(GeoJsonSource("campuses", FeatureCollection.fromFeatures(boundaries)))
-                    s.addLayer(FillLayer("campus-fill", "campuses").withProperties(fillColor("#537867"), fillOpacity(.12f), fillOutlineColor("#537867")))
+                    s.addLayer(FillLayer("campus-fill", "campuses").withProperties(fillColor("#286C70"), fillOpacity(.12f), fillOutlineColor("#286C70")))
+                    s.addSource(GeoJsonSource("track", FeatureCollection.fromFeatures(emptyList<Feature>())))
+                    s.addLayer(LineLayer("track-line", "track").withProperties(lineColor("#286C70"), lineWidth(4f), lineOpacity(.9f)))
+                    s.addSource(GeoJsonSource("raw-cats", FeatureCollection.fromFeatures(emptyList<Feature>())))
+                    s.addLayer(CircleLayer("raw-cat-points", "raw-cats").withProperties(circleRadius(12f), circleColor("#367F83"), circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f)))
                     s.addSource(GeoJsonSource("cats", FeatureCollection.fromFeatures(emptyList<Feature>()), GeoJsonOptions().withCluster(true).withClusterRadius(45).withClusterMaxZoom(15)))
-                    s.addLayer(CircleLayer("cat-points", "cats").withFilter(not(has("point_count"))).withProperties(circleRadius(10f), circleColor("#AD5035"), circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f)))
-                    s.addLayer(CircleLayer("cat-clusters", "cats").withFilter(has("point_count")).withProperties(circleRadius(18f), circleColor("#537867"), circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f)))
+                    s.addLayer(CircleLayer("cat-points", "cats").withFilter(not(has("point_count"))).withProperties(circleRadius(12f), circleColor("#367F83"), circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f)))
+                    s.addLayer(CircleLayer("cat-clusters", "cats").withFilter(has("point_count")).withProperties(circleRadius(18f), circleColor("#286C70"), circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f)))
                     s.addSource(GeoJsonSource("heat-data", FeatureCollection.fromFeatures(emptyList<Feature>())))
                     s.addLayer(HeatmapLayer("cat-heat", "heat-data").withProperties(heatmapRadius(32f), heatmapOpacity(.7f)))
+                    avatars.forEach { (id, bitmap) -> s.addImage(id, bitmap) }
+                    s.addLayer(SymbolLayer("raw-cat-avatars", "raw-cats")
+                        .withProperties(iconImage(get("avatar")), iconAllowOverlap(true), iconIgnorePlacement(true)))
+                    s.addLayer(SymbolLayer("cat-avatars", "cats").withFilter(not(has("point_count")))
+                        .withProperties(iconImage(get("avatar")), iconAllowOverlap(true), iconIgnorePlacement(true)))
                     s.addSource(GeoJsonSource("selection", FeatureCollection.fromFeatures(emptyList<Feature>())))
-                    s.addLayer(CircleLayer("selected-point", "selection").withProperties(circleRadius(12f), circleColor("#537867"), circleStrokeColor("#FFFFFF"), circleStrokeWidth(3f)))
+                    s.addLayer(CircleLayer("selected-point", "selection").withProperties(circleRadius(16f), circleOpacity(0f), circleStrokeColor("#286C70"), circleStrokeWidth(3f)))
                     style = s
                 }
                 m.addOnMapClickListener { coordinate ->
                     val pick = currentPick
-                    if (pick != null) pick(MapPoint(coordinate.latitude, coordinate.longitude))
+                    if (pick != null) pick(coordinate.toWgsMapPoint())
                     else {
                         val point = m.projection.toScreenLocation(coordinate)
-                        val features = m.queryRenderedFeatures(android.graphics.RectF(point.x - 24, point.y - 24, point.x + 24, point.y + 24), "cat-points", "cat-clusters")
-                        if (features.isEmpty()) currentAreas.find { it.contains(coordinate.latitude, coordinate.longitude) }?.let { campusClick?.invoke(it) }
+                        val features = m.queryRenderedFeatures(android.graphics.RectF(point.x - 24, point.y - 24, point.x + 24, point.y + 24), "raw-cat-points", "cat-points", "cat-clusters")
+                        if (features.isEmpty() && campusClick != null) {
+                            val wgs = coordinate.toWgsMapPoint()
+                            currentAreas.find { it.contains(wgs.latitude, wgs.longitude) }?.let { campusClick?.invoke(it) }
+                        }
                         features.firstOrNull()?.let { feature ->
                             if (feature.hasProperty("point_count")) m.animateCamera(CameraUpdateFactory.newLatLngZoom(coordinate, m.cameraPosition.zoom + 2))
                             else feature.getStringProperty("id")?.let { currentRecord(it) }
@@ -118,21 +179,53 @@ fun CampusMap(
             }
         }
     }, modifier = modifier)
-    LaunchedEffect(style, records) {
-        val features = records.map { r -> Feature.fromGeometry(Point.fromLngLat(r.record.longitude, r.record.latitude)).apply { addStringProperty("id", r.record.id) } }
+    LaunchedEffect(style, records, recordAvatars) {
+        val features = records.map { row ->
+            val record = row.record
+            val avatar = avatarPreset(record.catId ?: record.id.substringAfter('~'), recordAvatars[record.id])
+            Feature.fromGeometry(MapPoint(record.latitude, record.longitude).toAmapGeometry()).apply {
+                addStringProperty("id", record.id)
+                addStringProperty("avatar", avatar.id)
+            }
+        }
+        style?.getSourceAs<GeoJsonSource>("raw-cats")?.setGeoJson(FeatureCollection.fromFeatures(features))
         style?.getSourceAs<GeoJsonSource>("cats")?.setGeoJson(FeatureCollection.fromFeatures(features))
         style?.getSourceAs<GeoJsonSource>("heat-data")?.setGeoJson(FeatureCollection.fromFeatures(features))
     }
-    LaunchedEffect(style, heatmap) {
+    LaunchedEffect(style, heatmap, clustered, showAreas) {
         style?.getLayer("cat-heat")?.setProperties(visibility(if (heatmap) "visible" else "none"))
-        style?.getLayer("cat-points")?.setProperties(visibility(if (heatmap) "none" else "visible"))
-        style?.getLayer("cat-clusters")?.setProperties(visibility(if (heatmap) "none" else "visible"))
+        val clusters = visibility(if (!heatmap && clustered) "visible" else "none")
+        style?.getLayer("cat-points")?.setProperties(clusters)
+        style?.getLayer("cat-clusters")?.setProperties(clusters)
+        style?.getLayer("cat-avatars")?.setProperties(clusters)
+        style?.getLayer("raw-cat-avatars")?.setProperties(visibility(if (!heatmap && !clustered) "visible" else "none"))
+        style?.getLayer("raw-cat-points")?.setProperties(visibility(if (!heatmap && !clustered) "visible" else "none"))
+        style?.getLayer("campus-fill")?.setProperties(visibility(if (showAreas) "visible" else "none"))
+    }
+    LaunchedEffect(style, track) {
+        val points = track.map { MapPoint(it.record.latitude, it.record.longitude).toAmapGeometry() }
+        val features = if (points.size > 1) listOf(Feature.fromGeometry(LineString.fromLngLats(points))) else emptyList()
+        style?.getSourceAs<GeoJsonSource>("track")?.setGeoJson(FeatureCollection.fromFeatures(features))
     }
     LaunchedEffect(style, selection) {
-        val features = selection?.let { listOf(Feature.fromGeometry(Point.fromLngLat(it.longitude, it.latitude))) } ?: emptyList()
+        val features = selection?.let { listOf(Feature.fromGeometry(it.toAmapGeometry())) }.orEmpty()
+        val layer = style?.getLayer("selected-point")
+        layer?.setProperties(circleOpacity(if (onPick == null) 0f else 1f), circleColor("#286C70"))
         style?.getSourceAs<GeoJsonSource>("selection")?.setGeoJson(FeatureCollection.fromFeatures(features))
     }
-    LaunchedEffect(map, focus) { focus?.let { map?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(it.latitude, it.longitude), 16.5)) } }
+    LaunchedEffect(map, style, track, focus) {
+        val active = map ?: return@LaunchedEffect
+        if (style == null) return@LaunchedEffect
+        val coordinates = track.map { MapPoint(it.record.latitude, it.record.longitude).toAmapLatLng() }.distinct()
+        if (coordinates.size > 1) {
+            val bounds = LatLngBounds.Builder().includes(coordinates).build()
+            val padding = minOf(view.width, view.height).div(6).coerceAtMost(64)
+            active.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
+        } else {
+            val target = coordinates.firstOrNull() ?: focus?.toAmapLatLng()
+            if (target != null) active.animateCamera(CameraUpdateFactory.newLatLngZoom(target, 16.5))
+        }
+    }
 }
 
 /** One-shot platform location, no Google Play Services dependency. Returns cancellation. */

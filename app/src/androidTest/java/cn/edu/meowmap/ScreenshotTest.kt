@@ -23,14 +23,15 @@ class ScreenshotTest {
         assumeTrue("Uses local fixture records", BuildConfig.MEOW_LOCAL_MODE)
         compose.waitUntil(30_000) { compose.onAllNodesWithText("发现地图").fetchSemanticsNodes().isNotEmpty() }
         capture("01-map")
-        compose.onNodeWithText("发现地图", useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("nav_map").performClick()
         compose.onNodeWithTag("toggle_map_list").performClick()
         capture("02-records")
         compose.onNodeWithTag("record_list").performScrollToNode(hasText("图书馆旁的橘色身影"))
         compose.onNodeWithText("图书馆旁的橘色身影").performClick()
         capture("03-detail")
         compose.onNodeWithContentDescription("返回").performClick()
-        compose.onNodeWithText("我的", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("更多").performClick()
+        compose.onNodeWithText("个人档案").performClick()
         capture("04-profile")
     }
 }

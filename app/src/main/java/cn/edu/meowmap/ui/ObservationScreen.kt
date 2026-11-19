@@ -4,6 +4,7 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,8 +29,9 @@ import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ObservationScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit, onRecord: (String) -> Unit) {
-    var public by rememberSaveable { mutableStateOf(false) }
+fun ObservationScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit, onMapRecord: (String) -> Unit) {
+    var source by rememberSaveable { mutableStateOf("全部") }
+    var field by rememberSaveable { mutableStateOf("全部字段") }
     var missing by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var editorId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -37,41 +39,72 @@ fun ObservationScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit, 
     var start by rememberSaveable { mutableStateOf<Long?>(null) }
     var end by rememberSaveable { mutableStateOf<Long?>(null) }
     var dates by rememberSaveable { mutableStateOf(false) }
-    val filtered = state.observations.searchObservations(query).filter {
-        (!missing || it.place.isBlank()) && (start == null || it.observedAt >= start!!) && (end == null || it.observedAt < end!!)
+    val observationsByMapId = remember(state.publicObservations) {
+        state.publicObservations.mapNotNull { row -> row.mapId?.let { it to row } }.toMap()
+    }
+    val catsById = remember(state.cats) { state.cats.associateBy { it.id } }
+    val notes = if (source == "地图打卡") emptyList() else state.observations.filter { note ->
+        val cat = catsById[note.catId]
+        val fields = when (field) {
+            "猫咪" -> listOf(note.catName, cat?.name.orEmpty(), cat?.species.orEmpty())
+            "地点" -> listOf(note.place)
+            "描述" -> listOf(note.appearance)
+            else -> listOf(note.catName, note.place, note.appearance, cat?.name.orEmpty(), cat?.species.orEmpty())
+        }
+        (!missing || note.place.isBlank()) && (start?.let { note.observedAt >= it } ?: true) &&
+            (end?.let { note.observedAt < it } ?: true) && fields.matchesObservationQuery(query)
+    }
+    val checkIns = if (source == "观察记录") emptyList() else state.allRecords.filter { row ->
+        val record = row.record
+        val cat = catsById[record.catId]
+        val fields = when (field) {
+            "猫咪" -> listOf(cat?.name.orEmpty(), cat?.species.orEmpty())
+            "地点" -> listOf(record.title, record.place)
+            "描述" -> listOf(record.description)
+            else -> listOf(record.title, record.place, record.description, cat?.name.orEmpty(), cat?.species.orEmpty())
+        }
+        val metadata = observationsByMapId[record.id]
+        val time = metadata?.time?.takeIf { it > 0 } ?: record.createdAt
+        val hasLocation = metadata?.hasSpecificLocation ?: (record.title.isNotBlank() || record.place.isNotBlank())
+        record.userId == state.user?.id && (!missing || !hasLocation) &&
+            (start?.let { time >= it } ?: true) && (end?.let { time < it } ?: true) && fields.matchesObservationQuery(query)
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Spacer(Modifier.height(20.dp))
-        Text("我的观察手记", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        SectionTitle("我的观察记录")
         Spacer(Modifier.height(12.dp))
-        if (!cn.edu.meowmap.BuildConfig.MEOW_LOCAL_MODE) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(!public, { public = false }, label = { Text("我的记录") })
-            FilterChip(public, { public = true }, label = { Text("公开观察") })
-        }
-        if (public) {
-            PublicObservations(state, vm, onRecord)
-        } else if (state.user == null) {
+        if (state.user == null) {
             EmptyState("登录后记录观察手记", if (cn.edu.meowmap.BuildConfig.MEOW_LOCAL_MODE) "记录仅在此设备保存" else "云端观察可供其他用户浏览")
             Button(onClick = onLogin, modifier = Modifier.fillMaxWidth()) { Text("登录 / 注册") }
         } else {
             Button(onClick = { editorId = "new" }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("new_observation")) {
-                Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(6.dp)); Text("添加观察手记")
+                Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(6.dp)); Text("新增观察")
             }
             OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth().testTag("observation_search"), singleLine = true,
-                placeholder = { Text("搜索猫咪、地点或特征") }, leadingIcon = { Icon(Icons.Outlined.Search, null) },
+                placeholder = { Text("搜索猫咪、地点或描述") }, leadingIcon = { Icon(Icons.Outlined.Search, null) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Outlined.Close, "清除搜索") } })
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ObservationChoices(field, listOf("全部字段", "猫咪", "地点", "描述")) { field = it }
+                ObservationChoices(source, listOf("全部", "观察记录", "地图打卡")) { source = it }
                 FilterChip(missing, { missing = !missing }, label = { Text("缺少地点") })
                 FilterChip(selected = start != null || end != null, onClick = { dates = true }, label = { Text("发现日期") })
-                if (start != null || end != null || query.isNotEmpty()) TextButton(onClick = { start = null; end = null; query = "" }) { Text("清除筛选") }
+                if (start != null || end != null || query.isNotEmpty() || missing || source != "全部" || field != "全部字段") {
+                    TextButton(onClick = {
+                        start = null
+                        end = null
+                        query = ""
+                        missing = false
+                        source = "全部"
+                        field = "全部字段"
+                    }) { Text("重置筛选") }
+                }
             }
             if (start != null || end != null) Text(Filters(start = start, end = end).dateLabel(), style = MaterialTheme.typography.labelSmall, color = Muted)
-            Text("${filtered.size} 篇手记 · 累计观察 ${filtered.sumOf { it.count.toLong() }} 只次", color = Sage, style = MaterialTheme.typography.labelLarge)
-            Text("累计数量包含重复遇见同一只猫的情况", color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text("${notes.size + checkIns.size} 条观察", color = Sage, style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(8.dp))
-            if (filtered.isEmpty()) EmptyState("没有找到手记", "添加手记或清除筛选")
+            if (notes.isEmpty() && checkIns.isEmpty()) EmptyState("没有找到记录", "新增观察或清除筛选")
             else LazyColumn(contentPadding = PaddingValues(bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.testTag("observation_list")) {
-                items(filtered, key = { it.id }) { note ->
+                items(notes, key = { "note:" + it.id }) { note ->
                     Card(Modifier.fillMaxWidth().clickable(enabled = !state.busy) { editorId = note.id }) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Row {
@@ -87,6 +120,10 @@ fun ObservationScreen(state: MeowState, vm: MeowViewModel, onLogin: () -> Unit, 
                             }
                         }
                     }
+                }
+                items(checkIns, key = { "map:" + it.record.id }) { row ->
+                    val metadata = observationsByMapId[row.record.id]
+                    MapObservationRow(row, catsById[row.record.catId]?.avatar ?: metadata?.catAvatar, metadata?.time) { onMapRecord(row.record.id) }
                 }
             }
         }

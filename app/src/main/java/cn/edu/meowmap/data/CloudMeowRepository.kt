@@ -77,10 +77,16 @@ class CloudMeowRepository(private val context: Context, db: MeowDatabase, endpoi
             val id = "${row.text("user_id")}~${row.text("id")}"
             PublicObservation("$kind:$id", kind, id.takeIf { kind == "map_records" },
                 row.text("title").ifBlank { row.text("cat_name").ifBlank { row.text("species", "猫咪观察") } },
-                row.text("location").ifBlank { row.text("area") },
+                row.text("location").ifBlank { row.text("area").ifBlank { row.text("title") } },
                 row.text("species"), row.getAsJsonObject("profiles")?.text("username").orEmpty(),
-                originalTime(row.text("time").ifBlank { row.text("created_at") }),
-                row.text("is_demo") in setOf("true", "1") || row.text("demo_batch").isNotBlank(), row.text("university").ifBlank { row.text("area").substringBefore('·') })
+                originalTime(row.text("time")).takeIf { it > 0 } ?: originalTime(row.text("created_at")),
+                row.text("is_demo") in setOf("true", "1") || row.text("demo_batch").isNotBlank(),
+                row.text("university").ifBlank { row.text("area").substringBefore('·') },
+                catName = row.text("cat_name"),
+                catAvatar = row.text("cat_avatar").takeIf { it.startsWith("builtin:") },
+                description = row.text("desc").ifBlank { row.text("notes").ifBlank { row.text("gender") } },
+                count = row.text("count").toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                hasSpecificLocation = row.text("location").isNotBlank() || row.text("title").isNotBlank())
         }.distinctBy { it.key }
         observationRows.value = rows("records").map { row ->
             val time = originalTime(row.text("time"))

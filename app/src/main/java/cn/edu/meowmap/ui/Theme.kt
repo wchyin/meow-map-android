@@ -20,31 +20,31 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-val Coral = Color(0xFFAD5035)
-val Ink = Color(0xFF332923)
-val Muted = Color(0xFF716259)
-val Cream = Color(0xFFFAF7F2)
-val Sage = Color(0xFF537867)
+val Coral = Color(0xFF367F83)
+val Ink = Color(0xFF304B55)
+val Muted = Color(0xFF657D86)
+val Cream = Color(0xFFF4F8FA)
+val Sage = Color(0xFF286C70)
 
 @Composable
 fun MeowTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = lightColorScheme(
         primary = Coral, onPrimary = Color.White,
         secondary = Sage, onSecondary = Color.White,
-        secondaryContainer = Color(0xFFE4EEE6), onSecondaryContainer = Color(0xFF2C5141),
+        secondaryContainer = Color(0xFFEAF6F4), onSecondaryContainer = Color(0xFF286C70),
         background = Cream, onBackground = Ink,
-        surface = Color(0xFFFFFCF8), onSurface = Ink,
-        surfaceVariant = Color(0xFFF0EAE2), onSurfaceVariant = Muted,
-        primaryContainer = Color(0xFFFFE7DC), onPrimaryContainer = Color(0xFF793B29),
-        outlineVariant = Color(0xFFE5DCD1),
-    ), shapes = Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp)), content = content)
+        surface = Color(0xFFFFFFFF), onSurface = Ink,
+        surfaceVariant = Color(0xFFEDF3F5), onSurfaceVariant = Muted,
+        primaryContainer = Color(0xFFD5EEEB), onPrimaryContainer = Color(0xFF286469),
+        outlineVariant = Color(0xFFDCE7EB),
+    ), shapes = Shapes(small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(12.dp), large = RoundedCornerShape(16.dp)), content = content)
 }
 
 fun displayTime(timestamp: Long): String = DateTimeFormatter.ofPattern("MM月dd日 HH:mm").format(Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()))
 
 @Composable
 fun CatCover(path: String?, title: String, modifier: Modifier = Modifier) {
-    Box(modifier.background(Color(0xFFEFE7DB)), contentAlignment = Alignment.Center) {
+    Box(modifier.background(Color(0xFFEAF6F4)), contentAlignment = Alignment.Center) {
         if (path != null) SubcomposeAsyncImage(
             model = if (path.startsWith("http://") || path.startsWith("https://")) path else File(path), contentDescription = title, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
             loading = { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) } },

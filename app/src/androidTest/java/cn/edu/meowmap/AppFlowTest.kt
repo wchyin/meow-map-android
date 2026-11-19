@@ -27,7 +27,8 @@ class AppFlowTest {
         assumeTrue("Uses local fixture accounts", BuildConfig.MEOW_LOCAL_MODE)
         val title = "校园猫${System.nanoTime()}"
         compose.waitUntil(30_000) { compose.onAllNodesWithText("发现地图").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("我的", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("更多").performClick()
+        compose.onNodeWithText("个人档案").performClick()
         if (compose.onAllNodesWithText("退出登录").fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithText("退出登录").performClick()
         compose.onNodeWithTag("profile_login").performClick()
         compose.onNodeWithTag("auth_submit").performClick()
@@ -38,7 +39,7 @@ class AppFlowTest {
         compose.onNodeWithTag("auth_password").performTextInput("campus12345")
         compose.onNodeWithTag("auth_submit").performClick()
         compose.waitUntil(15_000) { compose.onAllNodesWithTag("auth_submit").fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithText("发现地图", useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("nav_map").performClick()
         compose.onNodeWithTag("new_record").performClick()
         compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("record_title") and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("record_title").performTextInput("草稿$title")
@@ -59,7 +60,7 @@ class AppFlowTest {
         compose.onNodeWithText("删除").performClick()
         compose.onNodeWithTag("confirm_delete_observation").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithText("手记$title").fetchSemanticsNodes().isEmpty() && compose.onAllNodesWithTag("confirm_delete_observation").fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithText("发现地图", useUnmergedTree = true).performClick()
+        compose.onNodeWithTag("nav_map").performClick()
         compose.onNodeWithTag("new_record").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithText("已恢复草稿").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("record_title").assertTextContains("草稿$title")
